@@ -628,3 +628,52 @@ dialog {
     grid-template-columns: repeat(4, auto);
   }
 }
+
+/* Small-screen HUD: reserve a clear play area and respect notches in both orientations. */
+@media (pointer: coarse) and (max-width: 740px) {
+  #touch {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  #touch button {
+    min-width: 44px;
+    min-height: 48px;
+    padding: 6px 9px;
+    font-size: clamp(0.72rem, 2.8vw, 0.9rem);
+  }
+  .touchpad {
+    gap: 4px;
+    grid-template-columns: repeat(3, minmax(44px, 12vw));
+  }
+  .touchactions {
+    gap: 5px;
+    grid-template-columns: repeat(2, minmax(54px, 15vw));
+  }
+  .mission { max-width: min(46vw, 270px); }
+  .vitals { max-width: 47vw; }
+  #message {
+    left: 50%;
+    width: min(70vw, 420px);
+    transform: translateX(-50%);
+    font-size: clamp(0.68rem, 2.8vw, 0.82rem);
+  }
+}
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 600px) {
+  .mission { top: max(8px, env(safe-area-inset-top)); max-width: 46%; padding: 7px 8px; }
+  .vitals { top: max(8px, env(safe-area-inset-top)); padding: 7px 8px; }
+  #place { font-size: 17px; }
+  #objective { line-height: 1.3; }
+  #message { bottom: calc(132px + env(safe-area-inset-bottom)); max-width: 78vw; }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #touch { bottom: max(6px, env(safe-area-inset-bottom)); }
+  #touch button { min-height: 40px; padding: 3px 7px; }
+  .touchpad { grid-template-columns: repeat(3, 42px); }
+  .touchactions { grid-template-columns: repeat(4, minmax(48px, 12vw)); }
+  .mission, .vitals { top: max(6px, env(safe-area-inset-top)); padding: 5px 8px; }
+  #place { font-size: 17px; }
+  #objective { font-size: 0.68rem; }
+  #message { bottom: 8px; width: min(36vw, 360px); }
+}

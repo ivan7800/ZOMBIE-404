@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   availableWeapons,
   chargeStock,
+  combatSupplyReward,
   WEAPONS,
 } from "../src/core/arsenal.mjs";
 import {
@@ -10,6 +11,13 @@ import {
   newRun,
   prepareRun,
 } from "../src/core/expedition.mjs";
+
+test("long-run combat resupplies ammunition every six kills and a bandage every twelve", () => {
+  assert.deepEqual(combatSupplyReward(5), { ammo: 0, bandage: 0 });
+  assert.deepEqual(combatSupplyReward(6), { ammo: 2, bandage: 0 });
+  assert.deepEqual(combatSupplyReward(12), { ammo: 2, bandage: 1 });
+  assert.deepEqual(combatSupplyReward(-1), { ammo: 0, bandage: 0 });
+});
 
 test("unlock rewards work through campaign milestones and free play kills", () => {
   const campaign = newRun("campaign", "survival");

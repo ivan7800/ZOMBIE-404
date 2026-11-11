@@ -12,6 +12,8 @@ import {
   refuelRadio,
   reload,
   resolveBroadcast,
+  resolveSiege,
+  resolveResearch,
 } from "../src/core/expedition.mjs";
 import {
   enterInterior,
@@ -168,7 +170,7 @@ test("story difficulty evacuates a critically wounded survivor", () => {
   assert.equal(run.inside, null);
 });
 
-test("barricades reduce the persistent cost of an approaching siege", () => {
+test("barricades reduce the size of an interactive siege wave", () => {
   const open = newRun("free", "survival");
   const fortified = newRun("free", "survival");
   for (const run of [open, fortified]) {
@@ -176,9 +178,46 @@ test("barricades reduce the persistent cost of an approaching siege", () => {
     run.community.resources.food = 12;
   }
   assert.equal(upgrade(fortified.community, "barricades").ok, true);
-  assert.ok(advanceCommunity(fortified).siege < advanceCommunity(open).siege);
-  assert.ok(fortified.community.resources.food > open.community.resources.food);
+  const fortifiedEvent = advanceCommunity(fortified);
+  const openEvent = advanceCommunity(open);
+  assert.equal(fortifiedEvent.siegeEncounter, true);
+  assert.equal(openEvent.siegeEncounter, true);
+  assert.ok(open.zombies.filter((z) => z.siegeDay === 3).length > fortified.zombies.filter((z) => z.siegeDay === 3).length);
+  assert.equal(open.community.resources.food, 9); // three rations consumed at dawn; siege loss deferred
+  const restoredMidAssault = prepareRun(JSON.parse(JSON.stringify(open)));
+  assert.equal(restoredMidAssault.zombies.filter((z) => z.siegeDay === 3 && z.alive).length,
+    open.zombies.filter((z) => z.siegeDay === 3 && z.alive).length);
+  assert.equal(resolveSiege(open, 3), false);
+  for (const enemy of open.zombies.filter((z) => z.siegeDay === 3)) enemy.alive = false;
+  assert.equal(resolveSiege(open, 3), true);
+  assert.equal(resolveSiege(open, 3), false);
+  assert.equal(open.community.resources.food, 11);
+  assert.equal(open.community.resources.materials, 5);
   assert.equal(fortified.community.siege, 1);
+});
+
+test("an assault away from Can Lluc costs resources and research warning weakens later pressure", () => {
+  const away = newRun("free", "survival");
+  away.community.day = 2;
+  away.player.x = 20;
+  away.player.y = 20;
+  away.community.resources.food = 12;
+  assert.equal(advanceCommunity(away).siegeEncounter, undefined);
+  assert.ok(away.community.resources.food < 12);
+
+  const warn = newRun("campaign", "survival");
+  const concealed = newRun("campaign", "survival");
+  for (const run of [warn, concealed]) {
+    run.community.day = 2;
+    run.campaign.act2 = "complete";
+    run.campaign.act3 = "decision";
+  }
+  assert.ok(resolveResearch(warn, "warn"));
+  assert.ok(resolveResearch(concealed, "conceal"));
+  const warnPressure = advanceCommunity(warn).siege;
+  const concealedPressure = advanceCommunity(concealed).siege;
+  assert.ok(warnPressure < concealedPressure);
+  assert.equal(concealed.community.resources.medicine, warn.community.resources.medicine + 2);
 });
 
 test("car accelerates, uses fuel, collides and stops before crossing the map boundary", () => {

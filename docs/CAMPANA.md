@@ -48,3 +48,9 @@ El nuevo progreso se añade al guardado v2 sin cambiar la clave ni el esquema. S
 | La última emisión | Interactuar con el terminal | Alertar al exterior o aislar el valle. El final calcula apoyos, decisiones previas y número de supervivientes vivos |
 
 Los finales se guardan en la campaña y en el diario. Tras el desenlace, la partida permanece disponible para continuar en modo supervivencia.
+
+## Asedios y apoyo de decisiones · 0.18.0
+
+Cada tercer amanecer puede llegar una horda. Si estás en el exterior de Can Lluc cuando comienza, puedes combatirla: las barricadas y el puesto de vigilancia reducen el número de atacantes. Al derrotar a toda la oleada, la comunidad conserva las provisiones y recupera comida, materiales y moral. Si estás fuera de la masía, la horda causa pérdidas como antes. Una oleada a medias permanece en el guardado.
+
+La advertencia del Acto III reduce la presión de los asedios posteriores; Núria aporta apoyo mientras siga viva. La presión y las patrullas suben con el tiempo de forma gradual y limitada para que las partidas largas ganen tensión sin crecer sin control.

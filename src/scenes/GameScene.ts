@@ -3,6 +3,7 @@ import {
   WEAPONS,
   availableWeapons,
   chargeStock,
+  combatSupplyReward,
   shotTargets,
 } from "../core/arsenal.mjs";
 import { buildActorAtlas } from "../art/actorAtlas";
@@ -77,6 +78,7 @@ import {
   resolveResearch,
   resolveEvacuation,
   resolveLastDawn,
+  resolveSiege,
 } from "../core/expedition.mjs";
 
 type Position = { x: number; y: number };
@@ -94,6 +96,8 @@ type Zombie = Position & {
   alive: boolean;
   attackCooldown: number;
   role: string;
+  siegeDay?: number;
+  resolved?: boolean;
 };
 type Container = Position & { id: string; kind: string; amount: number };
 type Room = {
@@ -630,7 +634,19 @@ export class GameScene extends Phaser.Scene {
     this.state.kills++;
     const active = activeSurvivor(this.state);
     active.xp = Math.min(9999, active.xp + 6);
+    this.grantKillRewards(target);
     return true;
+  }
+
+  private grantKillRewards(target: Zombie) {
+    const supply = combatSupplyReward(this.state.kills);
+    if (supply.ammo) pickupEquipment(this.state, "ammo", supply.ammo);
+    if (supply.bandage) pickupEquipment(this.state, "medicine", supply.bandage);
+    if (target.siegeDay !== undefined && resolveSiege(this.state, target.siegeDay)) {
+      this.game.events.emit("sound", "loot");
+      this.flash("Can Lluc resiste. La horda deja suministros en la entrada.", 5000);
+      this.persist(false);
+    }
   }
 
   private cycleWeapon() {
@@ -1525,6 +1541,8 @@ export class GameScene extends Phaser.Scene {
         3500,
       );
       if (summary.siege !== undefined) this.game.events.emit("sound", "danger");
+      if (summary.siegeEncounter)
+        this.flash("¡ASALTO A CAN LLUC! Acaba con la horda para salvar las provisiones.", 6500);
       if (c.day % 3 === 2 && c.facilities.lookout > 0)
         this.flash("El vigía ha visto una horda. Refuerza la masía.", 4000);
       this.persist(false);
@@ -1589,6 +1607,7 @@ export class GameScene extends Phaser.Scene {
           z.alive = false;
           z.hp = 0;
           s.kills++;
+          this.grantKillRewards(z);
           v.condition = Math.max(
             0,
             v.condition - (z.role === "brute" ? 13 : 5),

@@ -356,28 +356,45 @@ export function advanceCommunity(state) {
   const summary = {
     ...nextDay(c),
     siege: /** @type {number | undefined} */ (undefined),
+    siegeEncounter: /** @type {boolean | undefined} */ (undefined),
   };
   if (c.day % 3 === 0) {
-    const pressure = Math.max(
-      0,
-      4 +
-        profile.siege +
-        Math.floor(c.day / 3) -
-        c.facilities.barricades * 2 -
-        c.facilities.lookout,
-    );
+    // Pressure rises gently and then plateaus. A player at Can Lluc can fight
+    // the assault instead of paying its full abstract resource cost.
+    const livingNuria = c.survivors.some((person) => person.id === "nuria" && person.alive);
+    const routeSupport = state.campaign?.act3Choice === "warn" ? 1 : 0;
+    const pressure = Math.max(0, Math.min(8,
+      3 + profile.siege + Math.min(4, Math.floor(c.day / 6)) -
+      c.facilities.barricades * 2 - c.facilities.lookout -
+      (livingNuria ? 1 : 0) - routeSupport));
     c.siege += 1;
-    c.resources.food = Math.max(0, c.resources.food - pressure);
-    c.resources.materials = Math.max(
-      0,
-      c.resources.materials -
-        Math.max(0, Math.floor(pressure / 2) - c.facilities.storage),
-    );
-    c.morale = Math.max(0, c.morale - pressure * 2);
-    c.logs.push(
-      `Día ${c.day}: asedio nocturno. ${pressure ? "Perdimos provisiones." : "Las barricadas aguantaron."}`,
-    );
-    summary.siege = pressure;
+    const unresolvedSiege = state.zombies.some((z) => z.siegeDay !== undefined && z.alive);
+    const atBase = !unresolvedSiege && !state.inside && distance(state.player, BASE) <= 3.25;
+    if (atBase && pressure > 0) {
+      const blocked = generateWorld().blocked;
+      const candidates = [
+        { x: 9, y: 12 }, { x: 15, y: 12 }, { x: 12, y: 9 }, { x: 12, y: 15 },
+        { x: 9, y: 9 }, { x: 15, y: 15 }, { x: 9, y: 15 }, { x: 15, y: 9 },
+      ].filter((pos) => validPosition(pos.x, pos.y, blocked));
+      const count = Math.min(candidates.length, 2 + Math.ceil(pressure / 2));
+      for (let index = 0; index < count; index++) {
+        const role = index === 0 && c.day % 6 === 0 ? "brute" :
+          index === count - 1 && pressure >= 5 ? "screecher" :
+          index % 3 === 0 ? "runner" : "walker";
+        state.zombies.push({ ...candidates[index], id: `siege-${c.day}-${index}`,
+          hp: role === "brute" ? 5 : 3, alive: true, role, attackCooldown: 0,
+          siegeDay: c.day });
+      }
+      summary.siegeEncounter = true;
+      summary.siege = pressure;
+      c.logs.push(`Día ${c.day}: la horda llega a Can Lluc. Defiéndela para conservar las provisiones.`);
+    } else {
+      c.resources.food = Math.max(0, c.resources.food - pressure);
+      c.resources.materials = Math.max(0, c.resources.materials - Math.max(0, Math.floor(pressure / 2) - c.facilities.storage));
+      c.morale = Math.max(0, c.morale - pressure * 2);
+      summary.siege = pressure;
+      c.logs.push(`Día ${c.day}: asedio nocturno. ${pressure ? "La horda se llevó provisiones." : "Las barricadas aguantaron."}`);
+    }
   }
   const livingEnemies = state.zombies.filter((z) => z.alive);
   const blocked = generateWorld().blocked;
@@ -389,9 +406,10 @@ export function advanceCommunity(state) {
     { x: 20, y: 24 },
     { x: 17, y: 2 },
   ];
+  const patrolBudget = Math.min(6, profile.patrols + Math.floor(c.day / 6));
   let spawned = 0;
   for (const [index, pos] of corners.entries()) {
-    if (spawned >= profile.patrols || livingEnemies.length >= 24) break;
+    if (spawned >= patrolBudget || livingEnemies.length >= 24) break;
     if (profile.patrols === 3 && (index + c.day) % 2) continue;
     if (
       distance(pos, state.player) < 6 ||
@@ -426,6 +444,19 @@ export function advanceCommunity(state) {
   state.player.hp = activeSurvivor(state).hp;
   c.logs = c.logs.slice(-40);
   return summary;
+}
+
+/** Pays the defense reward once, after every attacker in that siege is down. */
+export function resolveSiege(state, day) {
+  const attackers = state.zombies.filter((z) => z.siegeDay === day);
+  if (!attackers.length || attackers.some((z) => z.alive) || attackers[0].resolved) return false;
+  for (const attacker of attackers) attacker.resolved = true;
+  const c = state.community;
+  c.resources.food += 2;
+  c.resources.materials += 1;
+  c.morale = clamp(c.morale + 5, 0, 100);
+  c.logs.push(`Día ${day}: Can Lluc resistió el asedio. La comunidad recuperó suministros.`);
+  return true;
 }
 
 export function issueSupply(state, resource) {

@@ -60,6 +60,15 @@ export function chargeStock(state) {
   );
 }
 
+/** Small, spaced resupplies keep long runs viable without replacing scavenging. */
+export function combatSupplyReward(kills) {
+  if (!Number.isInteger(kills) || kills <= 0) return { ammo: 0, bandage: 0 };
+  return {
+    ammo: kills % 6 === 0 ? 2 : 0,
+    bandage: kills % 12 === 0 ? 1 : 0,
+  };
+}
+
 export function prepareArsenal(state) {
   const { selected, spent } = state.arsenal ?? {};
   return {

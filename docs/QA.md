@@ -1,4 +1,19 @@
-# Informe de verificación · 0.14.0
+# Informe de verificación · 0.18.0
+
+## Revalidación de 0.18.0
+
+| Comprobación | Resultado |
+| --- | --- |
+| Pruebas Node | **77/77 aprobadas**, incluidas oleadas, guardado durante un asedio, apoyo de decisiones, presión cuando el jugador está lejos de Can Lluc y recompensas de munición/curación |
+| TypeScript y producción | `npm run build` completado; Vite genera la PWA y el service worker |
+| Guardados | Se mantiene el formato v2; los datos de oleadas se conservan como atributos opcionales de enemigos y sobreviven a la normalización del guardado |
+| Interfaz móvil | CSS adaptable implementado para orientación vertical y horizontal, áreas táctiles de 44 px o más y márgenes seguros |
+| Navegador / móvil físico | No validado: Chromium headless no pudo iniciar por la restricción de socket del entorno. Hace falta comprobar interacción y lectura en un dispositivo real |
+| Campaña completa | Las ramas relevantes tienen cobertura de lógica. No se certifica mediante recorrido manual completo el ritmo de los cinco actos |
+
+El bundle JavaScript sigue por encima de 500 kB sin comprimir (aviso de Vite); queda pendiente perfilar en hardware de referencia y dividir el bundle.
+
+Las pruebas automatizadas comprueban la creación y persistencia de oleadas, el efecto de barricadas, la recompensa única por victoria, la penalización cuando el jugador está fuera de la masía, el apoyo de decisiones previas y los hitos de reabastecimiento por bajas.
 
 ## Revalidación de 0.14.0
 

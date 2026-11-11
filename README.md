@@ -1,8 +1,10 @@
 # ZOMBIE-404 · Tierra Muerta
 
-**Versión 0.17.0 · Ecos de Can Lluc**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
+**Versión 0.18.0 · La defensa de Can Lluc**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
 
 La historia de **Los últimos días** empieza en la masía de Can Lluc. Los actos I–III siguen una señal, conectan a la comunidad con otros supervivientes y descubren el origen de las mutaciones. En el IV, una decisión de evacuación define quién recibe ayuda primero. En el V, el grupo decide si alertar al exterior o aislar el valle. Los finales dependen de tus alianzas, decisiones y supervivientes aún con vida. También puedes empezar en **Supervivencia libre**.
+
+En la v0.18.0, los asedios que te sorprenden en Can Lluc se convierten en combates: las mejoras defensivas reducen el tamaño de la horda y derrotarla evita pérdidas y recupera suministros. Las decisiones de advertir a otros refugios y acoger a Núria ayudan en las defensas posteriores. Cada seis bajas obtienes hasta dos cartuchos y cada doce una venda. En móvil, el HUD y los controles se adaptan a vertical y horizontal.
 
 ## Lanzadores para Windows y Linux
 
@@ -89,6 +91,7 @@ npm run dev
 ## Documentación
 
 - [Alcance y pruebas](docs/QA.md)
+- [Entrega 0.18.0](docs/V0.18.md)
 - [Arquitectura y guardados](docs/ARQUITECTURA.md)
 - [Campaña y contenido pendiente](docs/CAMPANA.md)
 - [Arte y créditos](docs/ARTE.md)

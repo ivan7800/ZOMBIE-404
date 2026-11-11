@@ -1,6 +1,6 @@
 
-const CACHE = "zombie404-4b8390af305a7669" + ':' + self.registration.scope;
-const PRECACHE = ["./assets/barlow-condensed-latin-700-normal-Dmwat-ge.woff","./assets/barlow-condensed-latin-700-normal-v1xN8_Wq.woff2","./assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff","./assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2","./assets/index-Dqa3zi4B.js","./assets/index-ojN2cVEN.css","./icon-192.png","./icon-512.png","./index.html","./licenses/Barlow-OFL.txt","./licenses/IBM-Plex-OFL.txt","./licenses/Phaser-MIT.txt","./manifest.webmanifest"];
+const CACHE = "zombie404-3d0c1cfb4d2bc226" + ':' + self.registration.scope;
+const PRECACHE = ["./assets/barlow-condensed-latin-700-normal-Dmwat-ge.woff","./assets/barlow-condensed-latin-700-normal-v1xN8_Wq.woff2","./assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff","./assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2","./assets/index-Dqh6pxu6.js","./assets/index-cp17bale.css","./icon-192.png","./icon-512.png","./index.html","./licenses/Barlow-OFL.txt","./licenses/IBM-Plex-OFL.txt","./licenses/Phaser-MIT.txt","./manifest.webmanifest"];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
 });
