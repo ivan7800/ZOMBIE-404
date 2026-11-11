@@ -8,7 +8,7 @@
 - La comunidad entrega dos cartuchos cada seis bajas y una venda adicional cada doce, si queda espacio en la mochila.
 - La advertencia del Acto III y Núria si sigue viva aportan apoyo real frente a asedios posteriores. Las oleadas se conservan al guardar y continuar.
 - Interfaz táctil ajustada para móvil en vertical y horizontal, con zonas táctiles mínimas, márgenes seguros y HUD más legible.
-- Verificación: 76 pruebas automatizadas y build de producción aprobados. El navegador headless no pudo abrirse por la restricción de sockets del entorno; falta la comprobación en un móvil físico.
+- Verificación: 77 pruebas automatizadas y build de producción aprobados. El navegador headless no pudo abrirse por la restricción de sockets del entorno; falta la comprobación en un móvil físico.
 
 ## 0.17.0 · Ecos de Can Lluc
 
