@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {newCommunity,switchSurvivor} from '../src/core/community.mjs';
+import {bootstrapEquipment,syncEquipment,consumeEquipment,pickupEquipment} from '../src/core/equipment.mjs';
+function scene(){return {player:{ammo:8,med:1,hp:100},community:newCommunity()};}
+test('migrates old ammunition only once (no duplication on reload)',()=>{const s=scene();bootstrapEquipment(s);assert.equal(s.community.survivors[0].inventory.items.ammo,8);bootstrapEquipment(s);assert.equal(s.player.ammo,8);assert.equal(s.equipmentVersion,1);});
+test('shooting and healing consume active inventory and synchronize HUD mirrors',()=>{const s=scene();bootstrapEquipment(s);assert.equal(consumeEquipment(s,'ammo'),true);assert.equal(s.player.ammo,7);assert.equal(consumeEquipment(s,'bandage'),true);assert.equal(s.player.med,0);assert.equal(consumeEquipment(s,'bandage'),false);});
+test('survivor switch changes ammunition and avoids shared ammo exploits',()=>{const s=scene();bootstrapEquipment(s);consumeEquipment(s,'ammo');switchSurvivor(s.community);syncEquipment(s);assert.equal(s.player.ammo,4);consumeEquipment(s,'ammo');switchSurvivor(s.community);switchSurvivor(s.community);syncEquipment(s);assert.equal(s.player.ammo,7);});
+test('pickup respects backpack weight and item limits, does not consume full pickup',()=>{const s=scene();bootstrapEquipment(s);const inv=s.community.survivors[0].inventory;inv.items={scrap:6,ammo:2};syncEquipment(s);assert.equal(pickupEquipment(s,'ammo',5),0);inv.items={};assert.equal(pickupEquipment(s,'ammo',25),14);assert.equal(pickupEquipment(s,'ammo',2),0);assert.equal(pickupEquipment(s,'alien',2),0);});
+test('equipment survives JSON serialization without re-running migration',()=>{const s=scene();bootstrapEquipment(s);consumeEquipment(s,'ammo');const saved=JSON.parse(JSON.stringify(s));bootstrapEquipment(saved);assert.equal(saved.player.ammo,7);assert.equal(saved.community.survivors[0].inventory.items.ammo,7);});

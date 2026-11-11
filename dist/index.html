@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111916" />
+    <meta
+      name="description"
+      content="Supervivencia isométrica en el Vallès Oriental, otoño de 1998."
+    />
+    <title>ZOMBIE-404 · Tierra Muerta</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+    <script type="module" crossorigin src="./assets/index-Dqa3zi4B.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-ojN2cVEN.css">
+  </head>
+  <body>
+    <main id="app">
+      <div id="game" aria-label="Escena isométrica"></div>
+      <div id="screen-effects" aria-hidden="true"><i></i><i></i><i></i></div>
+      <section id="hud" aria-label="Estado de la expedición" hidden>
+        <div class="mission">
+          <span id="place"></span>
+          <div id="objective"></div>
+        </div>
+        <div class="vitals">
+          <div id="stats"></div>
+          <div id="arsenal"></div>
+          <div id="community"></div>
+        </div>
+        <div id="message" role="status"></div>
+        <aside id="chapter-card" role="status" hidden>
+          <strong id="chapter-title"></strong>
+          <span id="chapter-line"></span>
+        </aside>
+        <footer class="field-bar">
+          <button data-action="notebook" type="button">
+            Cuaderno <kbd>Tab</kbd>
+          </button>
+          <button data-action="pause" type="button">
+            Pausa <kbd>Esc</kbd>
+          </button>
+        </footer>
+        <div id="help">
+          WASD · Moverse &nbsp; Mayús · Correr &nbsp; Espacio · Golpear &nbsp; G
+          / Clic · Disparar &nbsp; T · Recargar &nbsp; E · Usar &nbsp; F ·
+          Vendar &nbsp; P · Guardar &nbsp; V · Coche &nbsp; C · Arma &nbsp; X ·
+          Carga
+        </div>
+        <div id="touch" aria-label="Controles táctiles">
+          <div class="touchpad">
+            <button data-move="up" type="button" aria-label="Arriba">▲</button>
+            <button data-move="left" type="button" aria-label="Izquierda">
+              ◀
+            </button>
+            <button data-move="down" type="button" aria-label="Abajo">▼</button>
+            <button data-move="right" type="button" aria-label="Derecha">
+              ▶
+            </button>
+          </div>
+          <div class="touchactions">
+            <button data-action="attack" type="button">Golpear</button>
+            <button data-action="shoot" type="button">Disparar</button>
+            <button data-action="reload" type="button">Recargar</button>
+            <button data-action="interact" type="button">Usar</button>
+            <button data-action="heal" type="button">Vendar</button>
+            <button data-action="vehicle" type="button">Coche</button>
+            <button data-action="weapon" type="button">Arma</button>
+            <button data-action="charge" type="button">Carga</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="overlay" class="show">
+        <section class="panel" aria-labelledby="game-title">
+          <div class="eyebrow">VALLÈS ORIENTAL / NOVIEMBRE DE 1998</div>
+          <h1 id="game-title">ZOMBIE<span>–404</span></h1>
+          <div class="subtitle">TIERRA MUERTA</div>
+          <p id="intro">
+            La radio dejó de emitir a las 03:17. Aina, Pau y Laia han encontrado
+            refugio en una masía. Fuera, alguien ha vuelto a encender el
+            transmisor.
+          </p>
+          <div id="newOptions" class="settings">
+            <label
+              >Modo
+              <select id="mode">
+                <option value="campaign">Los últimos días</option>
+                <option value="free">Supervivencia libre</option>
+              </select>
+            </label>
+            <label
+              >Dificultad
+              <select id="difficulty">
+                <option value="story">Historia</option>
+                <option value="survival" selected>Supervivencia</option>
+                <option value="nightmare">Pesadilla</option>
+              </select>
+            </label>
+          </div>
+          <p id="difficultyHint">Muerte permanente de los supervivientes.</p>
+          <div class="actions">
+            <button id="newGame" type="button" disabled>Nueva partida</button>
+            <button id="continueGame" type="button" class="secondary" disabled>
+              Continuar
+            </button>
+          </div>
+          <details class="display-settings">
+            <summary>Imagen y efectos</summary>
+            <div class="display-grid">
+              <label
+                >Color
+                <select id="screen-color">
+                  <option value="original">Original</option>
+                  <option value="night">Noche fría</option>
+                  <option value="warm">Óxido</option>
+                  <option value="mono">Monocromo</option>
+                </select>
+              </label>
+              <label
+                >Brillo
+                <input
+                  id="screen-brightness"
+                  type="range"
+                  min="80"
+                  max="140"
+                  value="100"
+              /></label>
+              <label
+                >Intensidad
+                <input
+                  id="screen-intensity"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="45"
+              /></label>
+              <div class="display-switches">
+                <label><input id="screen-crt" type="checkbox" /> CRT</label>
+                <label><input id="screen-grain" type="checkbox" /> Grano</label>
+                <label
+                  ><input id="screen-vignette" type="checkbox" /> Viñeta</label
+                >
+                <label
+                  ><input id="screen-blood" type="checkbox" checked />
+                  Sangre</label
+                >
+                <label
+                  ><input id="screen-motion" type="checkbox" /> Reducir
+                  movimiento</label
+                >
+              </div>
+            </div>
+          </details>
+          <div class="audio-settings">
+            <button
+              id="soundToggle"
+              type="button"
+              class="secondary"
+              aria-pressed="false"
+            >
+              Sonido activo
+            </button>
+            <label
+              >Volumen
+              <input id="volume" type="range" min="0" max="100" value="65"
+            /></label>
+          </div>
+        </section>
+      </div>
+
+      <dialog id="notebook" aria-labelledby="notebook-title">
+        <header>
+          <h2 id="notebook-title">Cuaderno de campo</h2>
+          <button data-close type="button" class="secondary">Cerrar</button>
+        </header>
+        <nav aria-label="Secciones del cuaderno">
+          <button data-tab="inventory" type="button">Mochila</button>
+          <button data-tab="community" type="button">Comunidad</button>
+          <button data-tab="base" type="button">Refugio</button>
+          <button data-tab="vehicle" type="button">Coche</button>
+          <button data-tab="map" type="button">Mapa</button>
+          <button data-tab="journal" type="button">Diario</button>
+        </nav>
+        <p id="notebookSummary"></p>
+        <p id="notebookNotice" role="status"></p>
+        <canvas
+          id="fieldMap"
+          width="364"
+          height="364"
+          aria-label="Mapa del valle"
+          hidden
+        ></canvas>
+        <ul id="notebookRows"></ul>
+      </dialog>
+      <dialog id="act3" aria-labelledby="act3-title">
+        <header><h2 id="act3-title">La enfermedad</h2></header>
+        <p>
+          El protocolo relaciona la señal con las mutaciones: el patrón no es
+          aleatorio. Puedes advertir a los refugios de la Serra o guardar las
+          pruebas para estudiar una respuesta en Can Lluc.
+        </p>
+        <div class="actions">
+          <button id="warnRefuges" type="button">
+            Difundir la advertencia
+          </button>
+          <button id="concealResearch" type="button" class="secondary">
+            Guardar las pruebas
+          </button>
+          <button data-close type="button" class="secondary">
+            Decidir más tarde
+          </button>
+        </div>
+      </dialog>
+      <dialog id="act4" aria-labelledby="act4-title">
+        <header><h2 id="act4-title">La zona muerta</h2></header>
+        <p>
+          El repetidor va a colapsar y el paso solo permite una primera
+          maniobra. Puedes guiar al grupo de les Franqueses por la ruta abierta
+          o asegurar primero a la gente de Can Lluc. Lo que dejéis atrás
+          cambiará la última salida.
+        </p>
+        <div class="actions">
+          <button id="evacuateStation" type="button">
+            Abrir paso al grupo de la estación
+          </button>
+          <button id="evacuateMasia" type="button" class="secondary">
+            Asegurar primero Can Lluc
+          </button>
+          <button data-close type="button" class="secondary">
+            Decidir más tarde
+          </button>
+        </div>
+      </dialog>
+      <dialog id="act5" aria-labelledby="act5-title">
+        <header><h2 id="act5-title">El último amanecer</h2></header>
+        <p>
+          Solo queda energía para una emisión. Alertar al exterior podría traer
+          ayuda, pero también extender el brote. Aislar el valle protegerá a
+          otros, aunque Can Lluc quedará sin respuesta.
+        </p>
+        <div class="actions">
+          <button id="signalOutside" type="button">Alertar al exterior</button>
+          <button id="isolateValley" type="button" class="secondary">
+            Aislar el valle
+          </button>
+          <button data-close type="button" class="secondary">
+            Decidir más tarde
+          </button>
+        </div>
+      </dialog>
+
+      <dialog id="radio" aria-labelledby="radio-title">
+        <header><h2 id="radio-title">La última frecuencia</h2></header>
+        <p>
+          La operadora pide las coordenadas de la masía. Cuando el canal se
+          queda en silencio, oyes a alguien respirando al otro lado de la
+          puerta.
+        </p>
+        <div class="actions">
+          <button id="transmit" type="button">Emitir coordenadas</button>
+          <button id="disconnect" type="button" class="secondary">
+            Cortar la señal
+          </button>
+          <button data-close type="button" class="secondary">
+            Decidir más tarde
+          </button>
+        </div>
+      </dialog>
+      <dialog id="act2" aria-labelledby="act2-title">
+        <header><h2 id="act2-title">Los supervivientes</h2></header>
+        <p>
+          El parte identifica a Núria, radiooperadora de un pequeño grupo
+          refugiado en les Franqueses. Las otras personas se quedarán
+          protegiendo su estación; Núria puede viajar a Can Lluc o mantener el
+          contacto a distancia.
+        </p>
+        <div class="actions">
+          <button id="inviteGroup" type="button">
+            Invitar a Núria a Can Lluc
+          </button>
+          <button id="observeGroup" type="button" class="secondary">
+            Intercambiar rutas sin revelar la masía
+          </button>
+          <button data-close type="button" class="secondary">
+            Decidir más tarde
+          </button>
+        </div>
+      </dialog>
+    </main>
+  </body>
+</html>
