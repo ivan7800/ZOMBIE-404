@@ -1,5 +1,10 @@
 import Phaser from "phaser";
-import { WEAPONS, availableWeapons, chargeStock } from "../core/arsenal.mjs";
+import {
+  WEAPONS,
+  availableWeapons,
+  chargeStock,
+  shotTargets,
+} from "../core/arsenal.mjs";
 import { buildActorAtlas } from "../art/actorAtlas";
 import { buildWorldAtlas, PIXEL, WORLD_ATLAS } from "../art/pixelWorld";
 import {
@@ -44,13 +49,14 @@ import { visualProps } from "../core/visuals.mjs";
 import {
   MAP_SIZE,
   TILE_H,
+  TILE_W,
   PLAYER_SPEED,
   ZOMBIE_SPEED,
   iso,
   clamp,
   distance,
 } from "../core/rules.mjs";
-import { generateWorld, locations } from "../core/world.mjs";
+import { generateWorld, landmarks, locations } from "../core/world.mjs";
 import { saveGame, loadGame } from "../core/save.mjs";
 import {
   DIFFICULTIES,
@@ -249,28 +255,37 @@ function activeGoalStage(s: State) {
   return s.campaign.act2 === "lead" || s.campaign.act2 === "decision" ? 3 : -1;
 }
 const originY = (-MAP_SIZE * TILE_H) / 2;
-const farmhouse = { x: 10.15, y: 10.3 };
-const landmarkOffsets: Record<string, [number, number]> = {
-  radio: [-0.35, 1.25],
-  fuel: [1.15, -0.65],
-  shelter: [-0.7, -0.85],
-  central: [-0.75, -0.85],
-  research: [-0.65, -1],
-  relay: [-0.65, -0.8],
-  evacuation: [0.8, 0.7],
-  farmacia: [-0.65, -0.7],
-  mercado: [-0.25, -1.1],
+const roomOriginY = -165;
+const farmhouse = landmarks.find(
+  (site: Position & { kind: string }) => site.kind === "masia",
+)!;
+const roomDecisions = {
+  central: { act: "act2", event: "act2-choice", ids: ["registro"] },
+  laboratorio: {
+    act: "act3",
+    event: "act3-choice",
+    ids: ["protocolo", "muestras"],
+  },
+  repetidor: {
+    act: "act4",
+    event: "act4-choice",
+    ids: ["mapa_cables", "fusibles"],
+  },
+  evacuacion: {
+    act: "act5",
+    event: "act5-choice",
+    ids: ["manifiesto", "baterias_radio"],
+  },
+} as const;
+const roomFirstLines: Record<string, string> = {
+  farmacia: "El cartel de guardia sigue encendido. Qué detalle.",
+  mercado: "«Vuelva pronto», dice el cartel. Nadie ha vuelto a cambiarlo.",
+  taller: "Queda gasolina. El mecánico también.",
+  central: "Un teléfono suena detrás del mostrador.",
+  laboratorio: "Alguien numeró las puertas por fuera. Y las cerró por dentro.",
+  repetidor: "Los cables vibran. El viento no explica ese ritmo.",
+  evacuacion: "Han dejado una lista de pasajeros. Hay nombres tachados a mano.",
 };
-const landmarks = [
-  { kind: "masia", x: farmhouse.x, y: farmhouse.y },
-  ...locations,
-  ...SITES.filter((site) => ["farmacia", "mercado"].includes(site.id)).map(
-    (site) => ({ ...site, kind: site.id }),
-  ),
-].map((site) => {
-  const [dx, dy] = landmarkOffsets[site.kind] ?? [0, 0];
-  return { kind: site.kind, x: site.x + dx, y: site.y + dy };
-});
 
 export class GameScene extends Phaser.Scene {
   private state!: State;
@@ -303,6 +318,9 @@ export class GameScene extends Phaser.Scene {
   private cries = new WeakMap<Zombie, number>();
   private heardAt: Position | null = null;
   private attackCd = 0;
+  private aim: Position | null = null;
+  private shotDirection = 0;
+  private staggered = new WeakMap<Zombie, number>();
   private noise = 0;
   private biteCd = 0;
   private messageUntil = 0;
@@ -348,14 +366,28 @@ export class GameScene extends Phaser.Scene {
     );
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (
+        !pointer.wasTouch &&
+        pointer.leftButtonDown() &&
         pointer.downElement instanceof HTMLCanvasElement &&
         this.running &&
         !this.panelOpen
-      )
+      ) {
+        const origin = this.state.inside ?? this.state.player;
+        const screen = iso(origin.x, origin.y);
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const horizontal = (world.x - screen.x) / TILE_W;
+        const vertical =
+          (world.y -
+            screen.y -
+            (this.state.inside ? roomOriginY : originY) +
+            24) /
+          TILE_H;
+        this.aim = { x: vertical + horizontal, y: vertical - horizontal };
         this.actions.add("shoot");
+      }
     });
     this.adjustZoom();
-    this.buildTerrain();
+    this.buildTerrain(world.walls);
     this.draw();
     this.game.events.emit("ready-to-play");
   }
@@ -385,6 +417,7 @@ export class GameScene extends Phaser.Scene {
     this.impacts = [];
     this.blastCd = 0;
     this.cries = new WeakMap();
+    this.staggered = new WeakMap();
     this.heardAt = null;
     this.attackCd =
       this.biteCd =
@@ -407,6 +440,7 @@ export class GameScene extends Phaser.Scene {
 
   keysReset() {
     this.actions.clear();
+    this.aim = null;
     this.input.keyboard?.resetKeys();
   }
 
@@ -521,7 +555,9 @@ export class GameScene extends Phaser.Scene {
     if (goal && !s.inside) {
       const meters = Math.round(distance(p, goal) * 10);
       const label =
-        meters < 18 ? "E · Interactuar" : `${goal.name} · ${meters} m`;
+        meters < 20 && hasLineOfSight(p, goal, this.blocked)
+          ? "E · Interactuar"
+          : `${goal.name} · ${meters} m`;
       document
         .querySelector("#objective")!
         .append(document.createElement("br"), label);
@@ -586,6 +622,7 @@ export class GameScene extends Phaser.Scene {
     this.impact(target, "blood");
     if (target.hp > 0) {
       target.attackCooldown = Math.max(target.attackCooldown, stun);
+      this.staggered.set(target, this.state.time + stun * 0.55);
       return false;
     }
     target.alive = false;
@@ -632,7 +669,7 @@ export class GameScene extends Phaser.Scene {
       this.flash("Necesitas un infectado visible al alcance.");
       return;
     }
-    if (distance(origin, target) < 2.2) {
+    if (distance(origin, target) < 1.4) {
       this.flash("Demasiado cerca para usar una carga.");
       return;
     }
@@ -653,9 +690,14 @@ export class GameScene extends Phaser.Scene {
       this.damageEnemy(enemy, 4, 1.25);
       hits++;
     }
+    const nearBlast = distance(origin, target) < 2.4;
+    if (nearBlast) {
+      applyInjury(s, s.difficulty === "story" ? 8 : 14, false);
+      this.hurtPulse = 0.35;
+    }
     this.game.events.emit("sound", "blast");
     this.flash(
-      `Carga detonada · ${hits} impactos. Los infectados han oído el estruendo.`,
+      `Carga detonada · ${hits} impactos. ${nearBlast ? "La onda te ha alcanzado." : "Los infectados han oído el estruendo."}`,
       2300,
     );
     this.updateHud();
@@ -684,34 +726,52 @@ export class GameScene extends Phaser.Scene {
       this.noise = fire ? weapon.noise : 2.3;
       this.heardAt = { ...origin };
     }
-    const target: Zombie | undefined = combatTarget(
-      origin,
-      this.enemies(),
-      this.obstacles(),
-      fire ? weapon.range : 1.85,
-    );
-    this.game.events.emit("sound", fire ? weapon.sound : "melee");
-    if (!target) {
-      this.flash(fire ? "Disparo perdido." : "Sin objetivo al alcance.", 650);
-      this.updateHud();
-      return;
-    }
-    const east = target.x - origin.x - (target.y - origin.y);
+    const blocked = this.obstacles();
+    const enemies = this.enemies();
+    const aim = this.aim;
+    const melee: Zombie | undefined = fire
+      ? undefined
+      : combatTarget(origin, enemies, blocked, 1.85);
+    const hits: { enemy: Zombie; damage: number }[] = fire
+      ? shotTargets(origin, enemies, blocked, s.arsenal.selected, aim)
+      : melee
+        ? [{ enemy: melee, damage: 1 + Number(active.xp >= 30) }]
+        : [];
+    const direction = hits[0]?.enemy;
+    const east = direction
+      ? direction.x - origin.x - (direction.y - origin.y)
+      : aim
+        ? aim.x - aim.y
+        : 0;
     if (east) this.facing = Math.sign(east);
-    const killed = this.damageEnemy(
-      target,
-      fire ? weapon.damage : 1 + Number(active.xp >= 30),
-      fire ? 0.85 : 0.55,
-    );
-    if (!killed) {
-      const d = Math.max(0.01, distance(origin, target));
-      const push = fire ? 0.32 : 0.24;
-      const dx = (((target.x - origin.x) / d) * push) / 4;
-      const dy = (((target.y - origin.y) / d) * push) / 4;
-      for (let step = 0; step < 4; step++)
-        this.move(target, dx, dy, this.obstacles());
+    this.shotDirection = fire ? this.facing : 0;
+    this.game.events.emit("sound", fire ? weapon.sound : "melee");
+    let kills = 0;
+    for (const { enemy, damage } of hits) {
+      if (this.damageEnemy(enemy, damage, fire ? weapon.stun : 0.55)) {
+        kills++;
+        continue;
+      }
+      const push =
+        (fire ? weapon.push : 0.24) /
+        Math.max(0.01, distance(origin, enemy)) /
+        4;
+      const dx = (enemy.x - origin.x) * push;
+      const dy = (enemy.y - origin.y) * push;
+      for (let step = 0; step < 4; step++) this.move(enemy, dx, dy, blocked);
     }
-    this.flash(killed ? "Amenaza neutralizada." : "Impacto.", 800);
+    this.flash(
+      hits.length > 1
+        ? `${hits.length} impactos · ${kills} bajas.`
+        : kills
+          ? "Amenaza neutralizada."
+          : hits.length
+            ? "Impacto."
+            : fire
+              ? "Disparo perdido."
+              : "Sin objetivo al alcance.",
+      850,
+    );
     this.updateHud();
   }
 
@@ -736,6 +796,11 @@ export class GameScene extends Phaser.Scene {
       const room: Room = getInterior(s.inside.siteId);
       const saved = s.interiors[s.inside.siteId];
       const pos = s.inside;
+      const decision = roomDecisions[pos.siteId as keyof typeof roomDecisions];
+      if (decision && s.campaign[decision.act] === "decision") {
+        this.game.events.emit(decision.event);
+        return;
+      }
       const near = room.supplies.find((item) => {
         const target = { x: item.x + 0.5, y: item.y + 0.5 };
         return (
@@ -745,7 +810,20 @@ export class GameScene extends Phaser.Scene {
         );
       });
       if (near) {
-        const result = scavengeContainer(s, near.id, packResource);
+        const isEvidence =
+          decision?.ids.some((id) => id === near.id) &&
+          s.campaign[decision.act] === "lead";
+        const result = scavengeContainer(
+          s,
+          near.id,
+          isEvidence
+            ? (_community: unknown, _kind: string, amount: number) => ({
+                ok: true,
+                amount,
+                message: "Prueba anotada en el cuaderno.",
+              })
+            : packResource,
+        );
         if (result.ok) {
           const active = s.community.survivors[s.community.active];
           active.xp = Math.min(9999, active.xp + 2);
@@ -754,106 +832,22 @@ export class GameScene extends Phaser.Scene {
         }
         if (
           result.ok &&
-          s.inside.siteId === "central" &&
-          near.id === "registro" &&
-          s.campaign.act2 === "lead"
+          decision &&
+          s.campaign[decision.act] === "lead" &&
+          decision.ids.every((id) => saved.taken.includes(id))
         ) {
-          s.campaign.act2 = "decision";
+          s.campaign[decision.act] = "decision";
           s.community.logs.push(
-            s.community.survivors.some((person) => person.id === "mar")
-              ? "Acto II: Mar reconoce el indicativo. El registro conecta a Can Lluc con el grupo de Núria, refugiado en la estación de les Franqueses."
-              : "Acto II: el registro conecta a Can Lluc con el grupo de Núria, refugiado en la estación de les Franqueses.",
-          );
-          this.flash(
-            "El cuadro cobra vida: alguien responde desde les Franqueses.",
+            `${room.name}: se han reunido las pruebas. Queda una decisión pendiente.`,
           );
           this.persist(false);
           this.updateHud();
-          this.game.events.emit("act2-choice");
-          return;
-        }
-        if (
-          result.ok &&
-          s.inside.siteId === "laboratorio" &&
-          ["protocolo", "muestras"].includes(near.id) &&
-          s.campaign.act3 === "lead" &&
-          ["protocolo", "muestras"].every((id) =>
-            s.interiors.laboratorio.taken.includes(id),
-          )
-        ) {
-          s.campaign.act3 = "decision";
-          s.community.logs.push(
-            "Acto III: el protocolo demuestra que la señal altera la respuesta al patógeno. Las mutaciones no son aleatorias.",
-          );
-          this.flash(
-            "Las dos pruebas encajan. El informe plantea una decisión para Can Lluc.",
-          );
-          this.persist(false);
-          this.updateHud();
-          this.game.events.emit("act3-choice");
-          return;
-        }
-        const evidenceObjectives = {
-          repetidor: {
-            ids: ["mapa_cables", "fusibles"],
-            act: "act4" as const,
-            event: "act4-choice",
-            line: "Acto IV: el plano y los fusibles confirman una ventana de transmisión antes de que el repetidor colapse.",
-          },
-          evacuacion: {
-            ids: ["manifiesto", "baterias_radio"],
-            act: "act5" as const,
-            event: "act5-choice",
-            line: "Acto V: el manifiesto confirma que solo queda energía para una última emisión.",
-          },
-        };
-        const evidence =
-          evidenceObjectives[
-            s.inside.siteId as keyof typeof evidenceObjectives
-          ];
-        if (
-          result.ok &&
-          evidence &&
-          evidence.ids.includes(near.id) &&
-          s.campaign[evidence.act] === "lead" &&
-          evidence.ids.every((id) =>
-            s.interiors[s.inside!.siteId].taken.includes(id),
-          )
-        ) {
-          s.campaign[evidence.act] = "decision";
-          s.community.logs.push(evidence.line);
-          this.flash("Los datos encajan. El equipo debe decidir ahora.");
-          this.persist(false);
-          this.updateHud();
-          this.game.events.emit(evidence.event);
+          this.game.events.emit(decision.event);
           return;
         }
         this.flash(result.message);
+        if (result.ok) this.persist(false);
         this.updateHud();
-      } else if (
-        s.inside.siteId === "central" &&
-        s.campaign.act2 === "decision" &&
-        distance(pos, { x: 6.5, y: 1.5 }) < 1.6
-      ) {
-        this.game.events.emit("act2-choice");
-      } else if (
-        s.inside.siteId === "laboratorio" &&
-        s.campaign.act3 === "decision" &&
-        distance(pos, { x: 4.5, y: 1.5 }) < 1.6
-      ) {
-        this.game.events.emit("act3-choice");
-      } else if (
-        s.inside.siteId === "repetidor" &&
-        s.campaign.act4 === "decision" &&
-        distance(pos, { x: 4.5, y: 1.5 }) < 1.6
-      ) {
-        this.game.events.emit("act4-choice");
-      } else if (
-        s.inside.siteId === "evacuacion" &&
-        s.campaign.act5 === "decision" &&
-        distance(pos, { x: 4.5, y: 1.5 }) < 1.6
-      ) {
-        this.game.events.emit("act5-choice");
       } else
         this.flash(
           "Acércate a un contenedor con suministros o vuelve a la puerta.",
@@ -887,6 +881,30 @@ export class GameScene extends Phaser.Scene {
           this.game.events.emit("radio-choice");
           return;
         }
+      }
+    }
+    const loot = s.loot.find(
+      (item) =>
+        !item.taken &&
+        distance(p, item) < 1.7 &&
+        hasLineOfSight(p, item, this.blocked),
+    );
+    if (loot) {
+      const amount = pickupEquipment(
+        s,
+        loot.kind === "ammo" ? "ammo" : "medicine",
+        loot.remaining,
+      );
+      if (amount) {
+        loot.remaining -= amount;
+        loot.taken = loot.remaining === 0;
+        this.game.events.emit("sound", "loot");
+        this.persist(false);
+        this.flash(
+          `+${amount} ${loot.kind === "ammo" ? "cartuchos" : "vendas"}${loot.taken ? "" : " · queda botín"}`,
+        );
+        this.updateHud();
+        return;
       }
     }
     for (const site of SITES) {
@@ -937,35 +955,27 @@ export class GameScene extends Phaser.Scene {
         this.noise = 0;
         this.heardAt = null;
         this.game.events.emit("sound", "door");
-        this.flash("Entras en " + getInterior(site.id).name + ".");
+        const firstVisit = !s.community.logs.includes(
+          "Explorado: " + getInterior(site.id).name + ".",
+        );
+        if (firstVisit) {
+          s.community.logs.push(
+            "Explorado: " + getInterior(site.id).name + ".",
+          );
+        }
+        this.flash(
+          firstVisit
+            ? roomFirstLines[site.id]
+            : "Entras en " + getInterior(site.id).name + ".",
+          3600,
+        );
+        this.persist(false);
         this.updateHud();
         return;
       }
     }
-    const loot = s.loot.find(
-      (item) =>
-        !item.taken &&
-        distance(p, item) < 1.7 &&
-        hasLineOfSight(p, item, this.blocked),
-    );
-    if (loot) {
-      const amount = pickupEquipment(
-        s,
-        loot.kind === "ammo" ? "ammo" : "medicine",
-        loot.remaining,
-      );
-      if (amount) {
-        loot.remaining -= amount;
-        loot.taken = loot.remaining === 0;
-        this.game.events.emit("sound", "loot");
-        this.flash(
-          `+${amount} ${loot.kind === "ammo" ? "cartuchos" : "vendas"}${loot.taken ? "" : " · queda botín"}`,
-        );
-      } else this.flash("No cabe en la mochila.");
-      this.updateHud();
-      return;
-    }
-    if (this.isAtBase()) this.openPanel("base");
+    if (loot) this.flash("La mochila está llena.");
+    else if (this.isAtBase()) this.openPanel("base");
     else this.flash("No hay nada al alcance.", 1000);
   }
 
@@ -990,8 +1000,7 @@ export class GameScene extends Phaser.Scene {
     if (
       !s.inside ||
       s.inside.siteId !== "central" ||
-      s.campaign.act2 !== "decision" ||
-      distance(s.inside, { x: 6.5, y: 1.5 }) >= 1.6
+      s.campaign.act2 !== "decision"
     )
       return;
     const result = resolveContact(s, choice);
@@ -1007,8 +1016,7 @@ export class GameScene extends Phaser.Scene {
     if (
       !s.inside ||
       s.inside.siteId !== "laboratorio" ||
-      s.campaign.act3 !== "decision" ||
-      distance(s.inside, { x: 4.5, y: 1.5 }) >= 1.6
+      s.campaign.act3 !== "decision"
     )
       return;
     const result = resolveResearch(s, choice);
@@ -1024,8 +1032,7 @@ export class GameScene extends Phaser.Scene {
     if (
       !s.inside ||
       s.inside.siteId !== "repetidor" ||
-      s.campaign.act4 !== "decision" ||
-      distance(s.inside, { x: 4.5, y: 1.5 }) >= 1.6
+      s.campaign.act4 !== "decision"
     )
       return;
     const result = resolveEvacuation(s, choice);
@@ -1041,8 +1048,7 @@ export class GameScene extends Phaser.Scene {
     if (
       !s.inside ||
       s.inside.siteId !== "evacuacion" ||
-      s.campaign.act5 !== "decision" ||
-      distance(s.inside, { x: 4.5, y: 1.5 }) >= 1.6
+      s.campaign.act5 !== "decision"
     )
       return;
     const ending = resolveLastDawn(s, choice);
@@ -1050,7 +1056,7 @@ export class GameScene extends Phaser.Scene {
     this.closePanel();
     this.persist(false);
     this.running = false;
-    this.game.events.emit("show-overlay", ending.result, "ending");
+    this.game.events.emit("show-overlay", ending.result, "complete");
   }
 
   private deposit() {
@@ -1348,6 +1354,7 @@ export class GameScene extends Phaser.Scene {
     const pos = s.inside ?? s.player;
     const diff = DIFFICULTIES[s.difficulty];
     const threats = this.enemies();
+    const visibility = s.inside ? 1 : 0.7 + lightStrength(s.time) * 0.3;
     for (const z of threats) {
       if (
         !z.alive ||
@@ -1357,8 +1364,14 @@ export class GameScene extends Phaser.Scene {
         continue;
       if (distance(z, pos) > 5.5 || !hasLineOfSight(z, pos, blocked)) continue;
       this.cries.set(z, s.time + 12);
-      this.noise = Math.max(this.noise, 16);
-      this.heardAt = { ...z };
+      for (const ally of threats) {
+        if (!ally.alive || distance(ally, z) >= 16 * diff.hearing) continue;
+        this.intents.set(ally, {
+          destination: { x: z.x, y: z.y },
+          until: s.time + 5,
+          recalc: 0,
+        });
+      }
       this.game.events.emit("sound", "scream");
       this.flash("Un chillador ha dado la alarma.", 1800);
       break;
@@ -1366,9 +1379,10 @@ export class GameScene extends Phaser.Scene {
     for (const z of this.enemies()) {
       if (!z.alive) continue;
       z.attackCooldown = Math.max(0, z.attackCooldown - dt);
+      if ((this.staggered.get(z) ?? 0) > s.time) continue;
       const d = distance(z, pos);
       const sight =
-        d < diff.sight + (z.role === "lurker" ? 1 : 0) &&
+        d < diff.sight * visibility + (z.role === "lurker" ? 1 : 0) &&
         hasLineOfSight(z, pos, blocked);
       const heard =
         this.heardAt && distance(z, this.heardAt) < this.noise * diff.hearing;
@@ -1545,7 +1559,11 @@ export class GameScene extends Phaser.Scene {
     const east = Number(down("D", "RIGHT")) - Number(down("A", "LEFT"));
     const south = Number(down("S", "DOWN")) - Number(down("W", "UP"));
     const len = Math.hypot(east, south);
-    const sprint = len > 0 && this.keys.SHIFT.isDown && p.stamina > 8;
+    const sprint =
+      !s.vehicle.driving &&
+      len > 0 &&
+      (this.keys.SHIFT.isDown || touch?.has("sprint")) &&
+      p.stamina > 8;
     const energyCap = 100 - survivor.fatigue * 0.45;
     p.stamina = clamp(p.stamina + dt * (sprint ? -19 : 12), 0, energyCap);
     this.moving = false;
@@ -1621,6 +1639,11 @@ export class GameScene extends Phaser.Scene {
     if (!s.vehicle.driving && just("X", "charge")) this.useCharge();
     if (!s.vehicle.driving && just("SPACE", "attack")) this.attack(false);
     if (!s.vehicle.driving && just("G", "shoot")) this.attack(true);
+    this.aim = null;
+    if (s.gameOver) {
+      this.endRun();
+      return;
+    }
     if (just("T", "reload")) {
       const changed = reload(s);
       if (changed) this.game.events.emit("sound", "reload");
@@ -1731,7 +1754,7 @@ export class GameScene extends Phaser.Scene {
       .setVisible(true);
   }
 
-  private buildTerrain() {
+  private buildTerrain(walls: Set<string>) {
     const cells = this.staticTiles.map(({ x, y, screen }) => {
       const surface = this.roads.has(`${x},${y}`)
         ? "road"
@@ -1786,7 +1809,7 @@ export class GameScene extends Phaser.Scene {
       !occupied.some((other) => distance(p, other) < space);
     for (const { x, y, screen } of this.staticTiles) {
       const atY = screen.y + originY;
-      if (this.blocked.has(`${x},${y}`)) {
+      if (walls.has(`${x},${y}`)) {
         this.outdoor.push(
           this.newArt(`stone-wall:${(x + y) % 3}`, screen.x, atY),
         );
@@ -1830,7 +1853,9 @@ export class GameScene extends Phaser.Scene {
     for (const landmark of landmarks) {
       const a = iso(landmark.x, landmark.y);
       this.outdoor.push(
-        this.newArt(`building:${landmark.kind}`, a.x, a.y + originY),
+        this.newArt(`building:${landmark.kind}`, a.x, a.y + originY)
+          .setOrigin(0.5, 41 / 64)
+          .setDepth(this.artDepth(a.y + originY + 11 * PIXEL)),
       );
     }
     this.occluders = this.outdoor.filter((image) =>
@@ -1912,7 +1937,7 @@ export class GameScene extends Phaser.Scene {
         ?.forEach((image) => image.setVisible(false));
       this.outdoor.forEach((image) => image.setVisible(!site));
       if (site)
-        this.roomArt(site, getInterior(site), -165).forEach((image) =>
+        this.roomArt(site, getInterior(site), roomOriginY).forEach((image) =>
           image.setVisible(true),
         );
       this.visibleRoom = site;
@@ -2013,8 +2038,8 @@ export class GameScene extends Phaser.Scene {
     const p = iso(s.player.x, s.player.y);
     const foot = p.y + originY;
     for (const image of this.occluders) {
-      const depth = image.y - foot;
       const building = image.frame.name.startsWith("building:");
+      const depth = image.y + (building ? 11 * PIXEL : 0) - foot;
       const hidden =
         depth > 1 &&
         depth < (building ? 77 : 48) &&
@@ -2030,7 +2055,7 @@ export class GameScene extends Phaser.Scene {
   private drawInterior(s: State) {
     const inside = s.inside!;
     const room: Room = getInterior(inside.siteId);
-    const offset = -165;
+    const offset = roomOriginY;
     for (const box of room.supplies) {
       const p = iso(box.x + 0.5, box.y + 0.5);
       const taken = s.interiors[inside.siteId].taken.includes(box.id);
@@ -2112,13 +2137,28 @@ export class GameScene extends Phaser.Scene {
   private combatPixels(x: number, y: number) {
     if (this.attackPulse > 0) {
       this.effects.fillStyle(0xf2c787, Math.min(1, this.attackPulse * 2));
-      for (const [dx, dy] of [
-        [-28, -29],
-        [19, -36],
-        [29, -24],
-        [-14, -37],
-      ])
-        this.effects.fillRect(Math.round(x + dx), Math.round(y + dy), 6, 3);
+      if (this.shotDirection) {
+        const side = this.shotDirection;
+        this.effects.fillRect(
+          Math.round(x + 17 * side) - 3,
+          Math.round(y - 27),
+          7,
+          4,
+        );
+        this.effects.fillRect(
+          Math.round(x + 26 * side) - 2,
+          Math.round(y - 30),
+          5,
+          2,
+        );
+      } else
+        for (const [dx, dy] of [
+          [-28, -29],
+          [19, -36],
+          [29, -24],
+          [-14, -37],
+        ])
+          this.effects.fillRect(Math.round(x + dx), Math.round(y + dy), 6, 3);
     }
     if (this.hurtPulse > 0 && this.registry.get("blood") !== false) {
       this.effects.fillStyle(0xb64d42, Math.min(1, this.hurtPulse * 2));

@@ -38,6 +38,7 @@ const hud = element("hud");
 const intro = element("intro");
 const newGame = element<HTMLButtonElement>("newGame");
 const continueGame = element<HTMLButtonElement>("continueGame");
+const subtitle = element("game-subtitle");
 const difficultyHint = element("difficultyHint");
 const difficulty = element<HTMLSelectElement>("difficulty");
 const notebook = element<HTMLDialogElement>("notebook");
@@ -53,16 +54,28 @@ let menu = "title";
 let tab = "inventory";
 let ready = false;
 function refreshMenu() {
-  const inProgress = menu === "pause" || menu === "ending";
+  const inProgress = ["pause", "ending", "complete"].includes(menu);
   newGame.disabled = !ready;
   const saved = loadGame();
-  continueGame.textContent = inProgress ? "Reanudar" : "Continuar";
+  continueGame.textContent =
+    menu === "complete"
+      ? "Seguir explorando"
+      : inProgress
+        ? "Reanudar"
+        : "Continuar";
   continueGame.disabled = !ready || (!inProgress && (!saved || saved.gameOver));
 }
 function showMenu(message: string, reason: string) {
   touch.clear();
   audio.tension(0);
   menu = reason;
+  subtitle.textContent =
+    {
+      pause: "PARTIDA EN PAUSA",
+      ending: "FIN DEL ACTO I",
+      complete: "CAMPAÑA COMPLETADA",
+      dead: "CAN LLUC HA CAÍDO",
+    }[reason] ?? "TIERRA MUERTA";
   intro.textContent = message;
   hud.hidden = true;
   overlay.classList.add("show");
@@ -122,7 +135,7 @@ newGame.addEventListener("click", () => {
 });
 continueGame.addEventListener("click", () => {
   audio.unlock();
-  if (menu === "pause" || menu === "ending") {
+  if (["pause", "ending", "complete"].includes(menu)) {
     scene().resume();
     hideMenu();
   } else if (scene().startRun(true, "campaign", "survival")) hideMenu();

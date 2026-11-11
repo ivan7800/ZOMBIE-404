@@ -353,18 +353,20 @@ dialog nav button[aria-pressed="true"] {
     left: 12px;
   }
   #message {
-    bottom: 164px;
+    bottom: calc(255px + env(safe-area-inset-bottom));
   }
   #touch {
     display: flex;
     position: absolute;
-    inset: auto 10px 62px;
+    inset: auto max(10px, env(safe-area-inset-right))
+      calc(62px + env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
     justify-content: space-between;
     align-items: end;
     gap: 6px;
   }
   #touch button {
-    min-height: 42px;
+    min-height: 44px;
     padding: 4px 7px;
     font-size: 0.76rem;
     background: #1c2a23ed;
@@ -375,12 +377,12 @@ dialog nav button[aria-pressed="true"] {
   .touchpad {
     display: grid;
     gap: 3px;
-    grid-template-columns: repeat(3, 42px);
+    grid-template-columns: repeat(3, minmax(44px, auto));
   }
   .touchpad button:first-child {
     grid-column: 2;
   }
-  .touchpad button:nth-child(2) {
+  .touchpad [data-move="left"] {
     grid-column: 1;
   }
   .touchactions {
@@ -613,5 +615,16 @@ dialog {
     font-size: 0.82rem;
     background: #111a16df;
     padding: 4px 8px;
+  }
+}
+
+@media (pointer: coarse) and (max-height: 480px) {
+  #message {
+    bottom: 12px;
+    left: 50%;
+    width: min(36vw, 360px);
+  }
+  .touchactions {
+    grid-template-columns: repeat(4, auto);
   }
 }

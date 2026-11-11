@@ -1,3 +1,4 @@
+import { SITES } from "./community.mjs";
 import { MAP_SIZE } from "./rules.mjs";
 export const locations = [
   { x: 5, y: 6, name: "Gasolinera", kind: "radio", stage: 0 },
@@ -8,6 +9,28 @@ export const locations = [
   { x: 17, y: 17, name: "Perímetro del repetidor", kind: "relay", stage: 5 },
   { x: 21, y: 16, name: "Punto de evacuación", kind: "evacuation", stage: 6 },
 ];
+// Facades and collision share the same tile. Door markers stay on the
+// neighboring approach tiles used by existing objectives and saves.
+const buildingTiles = {
+  masia: [10, 10],
+  radio: [4, 7],
+  fuel: [20, 6],
+  shelter: [19, 20],
+  central: [5, 19],
+  research: [20, 3],
+  relay: [16, 16],
+  evacuation: [22, 16],
+  farmacia: [6, 15],
+  mercado: [8, 4],
+};
+export const landmarks = Object.entries(buildingTiles).map(
+  ([kind, [x, y]]) => ({
+    kind,
+    x: x + 0.5,
+    y: y + 0.5,
+  }),
+);
+
 export const initialLoot = [
   { x: 9, y: 5, kind: "ammo", taken: false },
   { x: 7, y: 16, kind: "med", taken: false },
@@ -39,7 +62,13 @@ export function generateWorld() {
   }
   for (let y = 10; y <= 14; y++)
     for (let x = 10; x <= 14; x++) blocked.delete(`${x},${y}`);
-  return { blocked, roads };
+  const walls = new Set(blocked);
+  const approaches = [...locations, ...SITES, ...initialLoot];
+  for (const [x, y] of Object.values(buildingTiles)) {
+    if (!approaches.some((site) => site.x === x && site.y === y))
+      blocked.add(`${x},${y}`);
+  }
+  return { blocked, roads, walls };
 }
 export function initialZombies() {
   return [

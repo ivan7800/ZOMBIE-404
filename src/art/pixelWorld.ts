@@ -290,10 +290,22 @@ function building(p: Pixels, kind: string) {
   const foot = 49,
     d = Math.round(w / 2);
   const h = kind === "masia" ? 20 : 13;
-  shadow(p, w + 7, 50);
-  // Give every facade a visible plinth. The original walls ended at the
-  // shadow's top edge, which made the buildings read as if they were hovering.
-  p.slab(32, foot + 3, w + 2, d + 2, 3, foundation);
+  // The pad follows the ground plane and meets both faces of the footing.
+  p.poly("#34382f", [
+    [7, 41],
+    [32, 28],
+    [57, 41],
+    [32, 54],
+  ]);
+  p.poly("#62604b", [
+    [11, 42],
+    [32, 31],
+    [53, 42],
+    [32, 53],
+  ]);
+  p.slab(32, foot + 3, w + 2, d + 2, 4, foundation);
+  p.line("#2a2d24", 32, 52, 33 + w, 51 - d);
+  p.line("#9b8c6a", 30 - w, 51 - d, 32, 52);
   masonry(p, 32, foot, w, d, h, colors);
   opening(
     p,

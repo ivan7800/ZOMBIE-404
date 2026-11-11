@@ -1,6 +1,6 @@
 # ZOMBIE-404 · Tierra Muerta
 
-**Versión 0.16.1 · Cimientos firmes**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
+**Versión 0.17.0 · Ecos de Can Lluc**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
 
 La historia de **Los últimos días** empieza en la masía de Can Lluc. Los actos I–III siguen una señal, conectan a la comunidad con otros supervivientes y descubren el origen de las mutaciones. En el IV, una decisión de evacuación define quién recibe ayuda primero. En el V, el grupo decide si alertar al exterior o aislar el valle. Los finales dependen de tus alianzas, decisiones y supervivientes aún con vida. También puedes empezar en **Supervivencia libre**.
 
@@ -40,7 +40,8 @@ Historia ofrece más recursos y retirada tras una herida crítica. Supervivencia
 | WASD o flechas | Moverse en las direcciones de la pantalla |
 | Mayús | Correr. Consume energía y hace ruido |
 | Espacio | Golpear cuerpo a cuerpo |
-| G o clic en la escena | Disparar al infectado visible más próximo dentro del alcance |
+| G o botón táctil Disparar | Disparo asistido al infectado visible más próximo |
+| Clic en la escena | Apuntar y disparar en la dirección del cursor |
 | T | Recargar con los cartuchos de la mochila |
 | E | Entrar, saquear, salir o interactuar con el objetivo |
 | F | Usar una venda. Cura salud, corta la hemorragia y reduce la infección |
@@ -51,7 +52,7 @@ Historia ofrece más recursos y retirada tras una herida crítica. Supervivencia
 | P / Esc | Guardar / pausar |
 | W, S, A y D en el coche | Acelerar, frenar o retroceder, girar a la izquierda y a la derecha |
 | C | Cambiar entre armas desbloqueadas |
-| X | Lanzar una carga de área contra un infectado visible a distancia segura |
+| X | Lanzar una carga de área contra un infectado visible. La onda puede herirte si estás cerca |
 
 El cuaderno reúne mochila, comunidad, instalaciones, coche, mapa y diario. Los dispositivos con puntero táctil muestran botones de movimiento, combate e interacción. La pausa también permite ajustar el volumen o silenciar el juego.
 

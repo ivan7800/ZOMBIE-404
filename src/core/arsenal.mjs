@@ -1,3 +1,6 @@
+import { distance } from "./rules.mjs";
+import { hasLineOfSight } from "./survival.mjs";
+
 export const WEAPONS = Object.freeze({
   pistol: {
     name: "Pistola",
@@ -7,6 +10,8 @@ export const WEAPONS = Object.freeze({
     noise: 13,
     cost: 1,
     sound: "shot",
+    push: 0.26,
+    stun: 0.48,
   },
   shotgun: {
     name: "Escopeta",
@@ -16,6 +21,8 @@ export const WEAPONS = Object.freeze({
     noise: 17,
     cost: 2,
     sound: "shotgun",
+    push: 0.64,
+    stun: 0.95,
   },
   carbine: {
     name: "Carabina",
@@ -25,6 +32,8 @@ export const WEAPONS = Object.freeze({
     noise: 15,
     cost: 1,
     sound: "carbine",
+    push: 0.35,
+    stun: 0.64,
   },
 });
 
@@ -57,4 +66,50 @@ export function prepareArsenal(state) {
     selected: availableWeapons(state).includes(selected) ? selected : "pistol",
     spent: Number.isInteger(spent) ? Math.min(16, Math.max(0, spent)) : 0,
   };
+}
+
+export function shotTargets(origin, enemies, blocked, id, aim) {
+  const weapon = WEAPONS[id];
+  const candidates = enemies.filter(
+    (enemy) =>
+      enemy.alive &&
+      distance(origin, enemy) <= weapon.range &&
+      hasLineOfSight(origin, enemy, blocked),
+  );
+  const alignment = (enemy, direction) => {
+    const dx = enemy.x - origin.x;
+    const dy = enemy.y - origin.y;
+    return (
+      (dx * direction.x + dy * direction.y) /
+      Math.max(0.01, Math.hypot(dx, dy) * Math.hypot(direction.x, direction.y))
+    );
+  };
+  const primary = candidates
+    .filter((enemy) => !aim || alignment(enemy, aim) >= 0.88)
+    .sort(
+      (a, b) =>
+        (aim ? alignment(b, aim) - alignment(a, aim) : 0) ||
+        distance(origin, a) - distance(origin, b),
+    )[0];
+  if (!primary) return [];
+  const range = distance(origin, primary);
+  const hits = [
+    {
+      enemy: primary,
+      damage: id === "shotgun" && range > 2.5 ? 3 : weapon.damage,
+    },
+  ];
+  if (id === "shotgun") {
+    const direction = { x: primary.x - origin.x, y: primary.y - origin.y };
+    hits.push(
+      ...candidates
+        .filter(
+          (enemy) => enemy !== primary && alignment(enemy, direction) >= 0.83,
+        )
+        .sort((a, b) => distance(origin, a) - distance(origin, b))
+        .slice(0, 2)
+        .map((enemy) => ({ enemy, damage: 2 })),
+    );
+  }
+  return hits;
 }

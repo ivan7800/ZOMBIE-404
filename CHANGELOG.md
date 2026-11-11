@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## 0.17.0 · Ecos de Can Lluc
+
+- Edificios con base de contacto, profundidad según el cimiento y colisión en el terreno. Los accesos conservan sus coordenadas.
+- Las decisiones se pueden confirmar al recuperar la última prueba o reabrir desde el interior. Las pruebas de campaña se anotan en el cuaderno aunque la mochila esté llena.
+- Clic para apuntar, disparo asistido en teclado y móvil, escopeta con dispersión y caída de daño, impactos que frenan a los infectados y cargas con daño de proximidad.
+- Menor visibilidad nocturna, chilladores que alertan al grupo, mensajes de ambientación al descubrir interiores y pantallas de pausa, derrota y cierre con títulos propios.
+- Control táctil para correr y controles adaptados a la pantalla en vertical y horizontal.
+
 ## 0.16.1 · Cimientos firmes
 
 - Se añadieron zócalos de piedra bajo las casas para cerrar la separación visual con el suelo.
