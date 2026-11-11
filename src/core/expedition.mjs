@@ -1,3 +1,4 @@
+import { prepareFieldEvents } from "./fieldEvents.mjs";
 import { prepareArsenal } from "./arsenal.mjs";
 import {
   BASE,
@@ -262,6 +263,7 @@ export function prepareRun(state) {
     Object.assign(state.player, { x: state.vehicle.x, y: state.vehicle.y });
   bootstrapEquipment(state);
   state.arsenal = prepareArsenal(state);
+  state.fieldEvents = prepareFieldEvents(state.fieldEvents);
   state.version = 2;
   return state;
 }

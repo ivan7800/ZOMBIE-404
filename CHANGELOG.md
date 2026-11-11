@@ -1,5 +1,13 @@
 # Registro de cambios
 
+## 0.19.0 · Luces en la niebla
+
+- Iluminación isométrica con noche fría, crepúsculo cálido, farolas, luces de emergencia, linterna y faros que respetan obstáculos, niebla y luz de disparos y explosiones.
+- Iluminación Cinematográfica, Suave o Desactivada. Reducir movimiento también desactiva los destellos de luz.
+- Cuatro hallazgos en el valle. El jugador elige entre recoger una cantidad pequeña en silencio y forzar un acceso para conseguir más, con riesgo de atraer infectados.
+- Brutos con una embestida anunciada y disparos con trazas breves. La linterna encendida aumenta la detección enemiga en interiores y de noche.
+- El guardado v2 conserva los hallazgos recogidos y carga partidas anteriores.
+
 ## 0.18.0 · La defensa de Can Lluc
 
 - Los asedios que alcanzan al jugador en la masía pasan a ser oleadas combatibles; derrotarlas conserva provisiones y aporta comida, materiales y moral.

@@ -14,8 +14,8 @@
     <title>ZOMBIE-404 · Tierra Muerta</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon-192.png" />
-    <script type="module" crossorigin src="./assets/index-Dqh6pxu6.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-cp17bale.css">
+    <script type="module" crossorigin src="./assets/index-Ci_fQTN7.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-ClJ-ID67.css">
   </head>
   <body>
     <main id="app">
@@ -39,6 +39,9 @@
         <footer class="field-bar">
           <button data-action="notebook" type="button">
             Cuaderno <kbd>Tab</kbd>
+          </button>
+          <button data-action="lamp" type="button" aria-pressed="true">
+            Linterna <kbd>L</kbd>
           </button>
           <button data-action="pause" type="button">
             Pausa <kbd>Esc</kbd>
@@ -139,6 +142,14 @@
                   max="100"
                   value="45"
               /></label>
+              <label
+                >Iluminación
+                <select id="screen-lighting">
+                  <option value="full">Cinematográfica</option>
+                  <option value="soft">Suave</option>
+                  <option value="off">Desactivada</option>
+                </select>
+              </label>
               <div class="display-switches">
                 <label><input id="screen-crt" type="checkbox" /> CRT</label>
                 <label><input id="screen-grain" type="checkbox" /> Grano</label>
@@ -172,6 +183,18 @@
           </div>
         </section>
       </div>
+
+      <dialog id="field-event" aria-labelledby="field-event-title">
+        <header><h2 id="field-event-title"></h2></header>
+        <p id="field-event-detail"></p>
+        <div class="actions">
+          <button id="field-event-quiet" type="button"></button>
+          <button id="field-event-loud" type="button"></button>
+          <button data-close type="button" class="secondary" autofocus>
+            Marcharse
+          </button>
+        </div>
+      </dialog>
 
       <dialog id="notebook" aria-labelledby="notebook-title">
         <header>

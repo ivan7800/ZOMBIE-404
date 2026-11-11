@@ -38,6 +38,9 @@
           <button data-action="notebook" type="button">
             Cuaderno <kbd>Tab</kbd>
           </button>
+          <button data-action="lamp" type="button" aria-pressed="true">
+            Linterna <kbd>L</kbd>
+          </button>
           <button data-action="pause" type="button">
             Pausa <kbd>Esc</kbd>
           </button>
@@ -137,6 +140,14 @@
                   max="100"
                   value="45"
               /></label>
+              <label
+                >Iluminación
+                <select id="screen-lighting">
+                  <option value="full">Cinematográfica</option>
+                  <option value="soft">Suave</option>
+                  <option value="off">Desactivada</option>
+                </select>
+              </label>
               <div class="display-switches">
                 <label><input id="screen-crt" type="checkbox" /> CRT</label>
                 <label><input id="screen-grain" type="checkbox" /> Grano</label>
@@ -170,6 +181,18 @@
           </div>
         </section>
       </div>
+
+      <dialog id="field-event" aria-labelledby="field-event-title">
+        <header><h2 id="field-event-title"></h2></header>
+        <p id="field-event-detail"></p>
+        <div class="actions">
+          <button id="field-event-quiet" type="button"></button>
+          <button id="field-event-loud" type="button"></button>
+          <button data-close type="button" class="secondary" autofocus>
+            Marcharse
+          </button>
+        </div>
+      </dialog>
 
       <dialog id="notebook" aria-labelledby="notebook-title">
         <header>

@@ -1,10 +1,12 @@
 # ZOMBIE-404 · Tierra Muerta
 
-**Versión 0.18.0 · La defensa de Can Lluc**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
+**Versión 0.19.0 · Luces en la niebla**. Supervivencia isométrica en un valle ficticio del Vallès Oriental, otoño de 1998.
 
 La historia de **Los últimos días** empieza en la masía de Can Lluc. Los actos I–III siguen una señal, conectan a la comunidad con otros supervivientes y descubren el origen de las mutaciones. En el IV, una decisión de evacuación define quién recibe ayuda primero. En el V, el grupo decide si alertar al exterior o aislar el valle. Los finales dependen de tus alianzas, decisiones y supervivientes aún con vida. También puedes empezar en **Supervivencia libre**.
 
 En la v0.18.0, los asedios que te sorprenden en Can Lluc se convierten en combates: las mejoras defensivas reducen el tamaño de la horda y derrotarla evita pérdidas y recupera suministros. Las decisiones de advertir a otros refugios y acoger a Núria ayudan en las defensas posteriores. Cada seis bajas obtienes hasta dos cartuchos y cada doce una venda. En móvil, el HUD y los controles se adaptan a vertical y horizontal.
+
+En la v0.19.0, la linterna y los faros iluminan el camino hasta chocar con un obstáculo. De noche y en interiores, la linterna facilita que los infectados te vean. El mapa marca cuatro hallazgos donde puedes arriesgarte a hacer ruido para llevarte más suministros. Los brutos avisan antes de cargar: puedes apartarte o interrumpirlos con un impacto. En **Imagen y efectos**, elige iluminación Cinematográfica, Suave o Desactivada.
 
 ## Lanzadores para Windows y Linux
 
@@ -40,6 +42,7 @@ Historia ofrece más recursos y retirada tras una herida crítica. Supervivencia
 | Tecla | Acción |
 | --- | --- |
 | WASD o flechas | Moverse en las direcciones de la pantalla |
+| L o botón Linterna | Encender o apagar la linterna |
 | Mayús | Correr. Consume energía y hace ruido |
 | Espacio | Golpear cuerpo a cuerpo |
 | G o botón táctil Disparar | Disparo asistido al infectado visible más próximo |

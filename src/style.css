@@ -677,3 +677,25 @@ dialog {
   #objective { font-size: 0.68rem; }
   #message { bottom: 8px; width: min(36vw, 360px); }
 }
+
+#game {
+  position: relative;
+}
+#game .scene-lighting {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  image-rendering: auto;
+}
+#game .scene-lighting[hidden] {
+  display: none;
+}
+[data-action="lamp"][aria-pressed="true"] {
+  border-color: #e6b374;
+  color: #ffdeb0;
+}
+@media (pointer: coarse) and (max-width: 400px) {
+  .field-bar { gap: 4px; }
+  .field-bar button { padding-inline: 8px; }
+}

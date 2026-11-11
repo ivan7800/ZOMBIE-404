@@ -47,6 +47,8 @@ const act2 = element<HTMLDialogElement>("act2");
 const act3 = element<HTMLDialogElement>("act3");
 const act4 = element<HTMLDialogElement>("act4");
 const act5 = element<HTMLDialogElement>("act5");
+const fieldEvent = element<HTMLDialogElement>("field-event");
+let pendingFieldEvent = "";
 const volume = element<HTMLInputElement>("volume");
 const sound = element<HTMLButtonElement>("soundToggle");
 
@@ -268,6 +270,7 @@ function renderNotebook(focusAction?: string) {
         goal.stage === m.stage ? 8 : 4,
       );
     for (const loot of m.loot) marker(loot.x, loot.y, "#ad835f", 3);
+    for (const find of m.fieldEvents) marker(find.x, find.y, "#8ee3ea", 4);
     marker(m.vehicle.x, m.vehicle.y, "#93b6ba", 5);
     marker(m.base.x, m.base.y, "#efe0b9", 7);
     ctx.strokeStyle = "#ffffff";
@@ -318,7 +321,31 @@ game.events.on("act5-choice", () => {
   touch.clear();
   act5.showModal();
 });
-for (const panel of [notebook, radio, act2, act3, act4, act5]) {
+game.events.on(
+  "field-event",
+  (event: {
+    id: string;
+    name: string;
+    detail: string;
+    quiet: string;
+    loud: string;
+  }) => {
+    touch.clear();
+    pendingFieldEvent = event.id;
+    element("field-event-title").textContent = event.name;
+    element("field-event-detail").textContent = event.detail;
+    element("field-event-quiet").textContent = event.quiet;
+    element("field-event-loud").textContent = event.loud;
+    fieldEvent.showModal();
+  },
+);
+for (const choice of ["quiet", "loud"]) {
+  element(`field-event-${choice}`).addEventListener("click", () => {
+    fieldEvent.close();
+    scene().finishFieldEvent(pendingFieldEvent, choice === "loud");
+  });
+}
+for (const panel of [notebook, radio, act2, act3, act4, act5, fieldEvent]) {
   panel.querySelector("[data-close]")!.addEventListener("click", () => {
     panel.close();
     scene().closePanel();
@@ -375,6 +402,7 @@ window.addEventListener("keydown", (event) => {
     !act3.open &&
     !act4.open &&
     !act5.open &&
+    !fieldEvent.open &&
     ["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
       event.key,
     )

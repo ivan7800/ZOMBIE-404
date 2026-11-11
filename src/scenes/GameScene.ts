@@ -20,7 +20,9 @@ import {
   pickupEquipment,
 } from "../core/equipment.mjs";
 import { packResource, depositBackpack } from "../core/logistics.mjs";
-import { lightStrength } from "../core/atmosphere.mjs";
+import { beamEdge, lightStrength, outdoorLight } from "../core/atmosphere.mjs";
+import { fieldEvents, resolveFieldEvent } from "../core/fieldEvents.mjs";
+import { SceneLighting } from "../art/sceneLighting";
 import {
   INTERIOR_W,
   INTERIOR_H,
@@ -82,6 +84,13 @@ import {
 } from "../core/expedition.mjs";
 
 type Position = { x: number; y: number };
+type FieldEvent = Position & {
+  id: string;
+  name: string;
+  detail: string;
+  quiet: string;
+  loud: string;
+};
 type Weapon = keyof typeof WEAPONS;
 type Impact = {
   at: Position;
@@ -153,6 +162,7 @@ type State = {
   };
   arsenal: { selected: Weapon; spent: number };
   kills: number;
+  fieldEvents: string[];
   time: number;
   community: {
     active: number;
@@ -293,6 +303,14 @@ const roomFirstLines: Record<string, string> = {
 
 export class GameScene extends Phaser.Scene {
   private state!: State;
+  private lighting!: SceneLighting;
+  private torch = true;
+  private heading = Math.PI / 4;
+  private chargeAttack = new WeakMap<
+    Zombie,
+    { windup: number; rush: number; recovery: number; target: Position }
+  >();
+  private shotTrail: { from: Position; to: Position } | null = null;
   private running = false;
   private get panelOpen() {
     return !!document.querySelector("dialog[open]");
@@ -303,6 +321,7 @@ export class GameScene extends Phaser.Scene {
   private worldAtlas!: Phaser.Textures.CanvasTexture;
   private outdoor: Phaser.GameObjects.Image[] = [];
   private occluders: Phaser.GameObjects.Image[] = [];
+  private streetLights: Phaser.GameObjects.Image[] = [];
   private rooms = new Map<string, Phaser.GameObjects.Image[]>();
   private activeArt = new Map<string, Phaser.GameObjects.Image>();
   private visibleRoom = "";
@@ -355,9 +374,15 @@ export class GameScene extends Phaser.Scene {
     this.gfx = this.add.graphics();
     this.effects = this.add.graphics().setDepth(1000);
     this.cameras.main.roundPixels = true;
+    this.lighting = new SceneLighting(
+      document.querySelector<HTMLElement>("#game")!,
+    );
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      this.lighting.destroy(),
+    );
     const keyboard = this.input.keyboard!;
     this.keys = keyboard.addKeys(
-      "W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,E,F,P,ESC,Q,B,R,T,G,V,X,C,SHIFT",
+      "W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,E,F,P,ESC,Q,B,R,T,G,V,X,C,L,SHIFT",
       false,
     ) as Record<string, Phaser.Input.Keyboard.Key>;
     const onResize = () => {
@@ -418,6 +443,10 @@ export class GameScene extends Phaser.Scene {
     this.keysReset();
     this.intents.clear();
     this.lastChapter = -1;
+    this.torch = true;
+    this.heading = Math.PI / 4;
+    this.chargeAttack = new WeakMap();
+    this.shotTrail = null;
     this.impacts = [];
     this.blastCd = 0;
     this.cries = new WeakMap();
@@ -503,6 +532,11 @@ export class GameScene extends Phaser.Scene {
     const s = this.state;
     if (!s) return;
     this.lastHud = s.time;
+    const lamp = document.querySelector<HTMLButtonElement>(
+      '[data-action="lamp"]',
+    )!;
+    lamp.setAttribute("aria-pressed", String(this.torch));
+    lamp.disabled = s.vehicle.driving;
     document
       .querySelector<HTMLElement>("#hud")!
       .style.setProperty(
@@ -555,6 +589,11 @@ export class GameScene extends Phaser.Scene {
     document.querySelector("#objective")!.textContent = s.inside
       ? "E para saquear. Regresa a la puerta para salir."
       : currentObjective(s);
+    const event = this.nearFieldEvent();
+    if (event)
+      document
+        .querySelector("#objective")!
+        .append(document.createElement("br"), `${event.name} · Usar`);
     const goal = locations.find((loc) => loc.stage === activeGoalStage(s));
     if (goal && !s.inside) {
       const meters = Math.round(distance(p, goal) * 10);
@@ -642,9 +681,15 @@ export class GameScene extends Phaser.Scene {
     const supply = combatSupplyReward(this.state.kills);
     if (supply.ammo) pickupEquipment(this.state, "ammo", supply.ammo);
     if (supply.bandage) pickupEquipment(this.state, "medicine", supply.bandage);
-    if (target.siegeDay !== undefined && resolveSiege(this.state, target.siegeDay)) {
+    if (
+      target.siegeDay !== undefined &&
+      resolveSiege(this.state, target.siegeDay)
+    ) {
       this.game.events.emit("sound", "loot");
-      this.flash("Can Lluc resiste. La horda deja suministros en la entrada.", 5000);
+      this.flash(
+        "Can Lluc resiste. La horda deja suministros en la entrada.",
+        5000,
+      );
       this.persist(false);
     }
   }
@@ -760,6 +805,14 @@ export class GameScene extends Phaser.Scene {
         ? aim.x - aim.y
         : 0;
     if (east) this.facing = Math.sign(east);
+    if (fire && (direction || aim)) {
+      const delta = direction
+        ? { x: direction.x - origin.x, y: direction.y - origin.y }
+        : aim!;
+      this.heading = Math.atan2(delta.y, delta.x);
+    }
+    this.shotTrail =
+      fire && direction ? { from: { ...origin }, to: { ...direction } } : null;
     this.shotDirection = fire ? this.facing : 0;
     this.game.events.emit("sound", fire ? weapon.sound : "melee");
     let kills = 0;
@@ -788,6 +841,31 @@ export class GameScene extends Phaser.Scene {
               : "Sin objetivo al alcance.",
       850,
     );
+    this.updateHud();
+  }
+
+  private nearFieldEvent(): FieldEvent | undefined {
+    const s = this.state;
+    if (s.inside || s.vehicle.driving) return undefined;
+    return fieldEvents.find(
+      (event: FieldEvent) =>
+        !s.fieldEvents.includes(event.id) &&
+        distance(s.player, event) < 1.65 &&
+        hasLineOfSight(s.player, event, this.blocked),
+    );
+  }
+
+  finishFieldEvent(id: string, loud: boolean) {
+    if (this.nearFieldEvent()?.id !== id) return;
+    const result = resolveFieldEvent(this.state, id, loud);
+    if (!result) return;
+    if (result.noise) {
+      this.heardAt = { ...this.state.player };
+      this.noise = result.noise;
+      this.game.events.emit("sound", "danger");
+    } else if (result.amount) this.game.events.emit("sound", "loot");
+    if (result.amount) this.persist(false);
+    this.flash(result.message, 3300);
     this.updateHud();
   }
 
@@ -989,6 +1067,12 @@ export class GameScene extends Phaser.Scene {
         this.updateHud();
         return;
       }
+    }
+    const event = this.nearFieldEvent();
+    if (event) {
+      this.keysReset();
+      this.game.events.emit("field-event", event);
+      return;
     }
     if (loot) this.flash("La mochila está llena.");
     else if (this.isAtBase()) this.openPanel("base");
@@ -1274,11 +1358,14 @@ export class GameScene extends Phaser.Scene {
       };
     if (tab === "map")
       return {
-        summary: `Posición exterior ${s.player.x.toFixed(1)}, ${s.player.y.toFixed(1)} · Verde: puertas. Ámbar: objetivo. Cobre: botín. Azul: coche.`,
+        summary: `Posición exterior ${s.player.x.toFixed(1)}, ${s.player.y.toFixed(1)} · Verde: puertas. Ámbar: objetivo. Cobre: botín. Azul: coche. Celeste: hallazgos.`,
         map: {
           player: s.player,
           sites: SITES,
           loot: s.loot.filter((item) => !item.taken),
+          fieldEvents: (fieldEvents as FieldEvent[]).filter(
+            (item) => !s.fieldEvents.includes(item.id),
+          ),
           vehicle: s.vehicle,
           base: BASE,
           goals: locations,
@@ -1370,7 +1457,9 @@ export class GameScene extends Phaser.Scene {
     const pos = s.inside ?? s.player;
     const diff = DIFFICULTIES[s.difficulty];
     const threats = this.enemies();
-    const visibility = s.inside ? 1 : 0.7 + lightStrength(s.time) * 0.3;
+    const darkness = lightStrength(s.time) < 0.34;
+    const visibility = s.inside ? 1 : 0.66 + lightStrength(s.time) * 0.4;
+    const lit = this.torch && !s.vehicle.driving && (darkness || !!s.inside);
     for (const z of threats) {
       if (
         !z.alive ||
@@ -1398,8 +1487,10 @@ export class GameScene extends Phaser.Scene {
       if ((this.staggered.get(z) ?? 0) > s.time) continue;
       const d = distance(z, pos);
       const sight =
-        d < diff.sight * visibility + (z.role === "lurker" ? 1 : 0) &&
-        hasLineOfSight(z, pos, blocked);
+        d <
+          diff.sight * visibility +
+            (z.role === "lurker" ? 1 : 0) +
+            (lit ? 0.85 : 0) && hasLineOfSight(z, pos, blocked);
       const heard =
         this.heardAt && distance(z, this.heardAt) < this.noise * diff.hearing;
       const stimulus = sight ? pos : heard ? this.heardAt : null;
@@ -1416,6 +1507,39 @@ export class GameScene extends Phaser.Scene {
           recalc: 0,
         };
         this.intents.set(z, intent);
+      }
+      if (!s.vehicle.driving && z.role === "brute") {
+        let charge = this.chargeAttack.get(z);
+        if (
+          sight &&
+          d > 1.35 &&
+          d < 3.35 &&
+          z.attackCooldown === 0 &&
+          (!charge || charge.recovery <= s.time)
+        ) {
+          charge = {
+            windup: s.time + 0.66,
+            rush: s.time + 1.13,
+            recovery: s.time + 3.7,
+            target: { x: pos.x, y: pos.y },
+          };
+          this.chargeAttack.set(z, charge);
+          this.game.events.emit("sound", "danger");
+        }
+        if (charge && s.time < charge.windup) continue;
+        if (charge && s.time < charge.rush && d > 0.9) {
+          const gap = distance(z, charge.target);
+          if (gap > 0.08) {
+            const fraction = Math.min(gap, dt * 4.9) / gap;
+            this.move(
+              z,
+              (charge.target.x - z.x) * fraction,
+              (charge.target.y - z.y) * fraction,
+              blocked,
+            );
+          }
+          if (!canBite(z, pos, blocked)) continue;
+        }
       }
       if (
         this.biteCd === 0 &&
@@ -1542,7 +1666,10 @@ export class GameScene extends Phaser.Scene {
       );
       if (summary.siege !== undefined) this.game.events.emit("sound", "danger");
       if (summary.siegeEncounter)
-        this.flash("¡ASALTO A CAN LLUC! Acaba con la horda para salvar las provisiones.", 6500);
+        this.flash(
+          "¡ASALTO A CAN LLUC! Acaba con la horda para salvar las provisiones.",
+          6500,
+        );
       if (c.day % 3 === 2 && c.facilities.lookout > 0)
         this.flash("El vigía ha visto una horda. Refuerza la masía.", 4000);
       this.persist(false);
@@ -1627,6 +1754,7 @@ export class GameScene extends Phaser.Scene {
     } else if (len) {
       if (east) this.facing = Math.sign(east);
       if (south) this.back = south < 0;
+      this.heading = Math.atan2(south - east, south + east);
       const pos = s.inside ?? p;
       const previous = { ...pos };
       const speed =
@@ -1653,6 +1781,14 @@ export class GameScene extends Phaser.Scene {
         this.game.events.emit("sound", s.inside ? "step-indoor" : "step");
         this.lastFootstep = s.time;
       }
+    }
+    if (just("L", "lamp") && !s.vehicle.driving) {
+      this.torch = !this.torch;
+      this.flash(
+        this.torch ? "Linterna encendida." : "Linterna apagada.",
+        1250,
+      );
+      this.updateHud();
     }
     if (just("C", "weapon")) this.cycleWeapon();
     if (!s.vehicle.driving && just("X", "charge")) this.useCharge();
@@ -1822,7 +1958,13 @@ export class GameScene extends Phaser.Scene {
       );
     }
     const occupied: Position[] = [];
-    const reserved = [...landmarks, ...SITES, ...locations, BASE];
+    const reserved = [
+      ...landmarks,
+      ...SITES,
+      ...locations,
+      ...fieldEvents,
+      BASE,
+    ];
     const separated = (p: Position, space: number) =>
       !reserved.some((site) => distance(p, site) < 1.85) &&
       !occupied.some((other) => distance(p, other) < space);
@@ -1877,6 +2019,9 @@ export class GameScene extends Phaser.Scene {
           .setDepth(this.artDepth(a.y + originY + 11 * PIXEL)),
       );
     }
+    this.streetLights = this.outdoor.filter(
+      (image) => image.frame.name === "lamp",
+    );
     this.occluders = this.outdoor.filter((image) =>
       /^(building|tree):/.test(image.frame.name),
     );
@@ -1973,6 +2118,7 @@ export class GameScene extends Phaser.Scene {
       const pan = camera.width >= 960 ? camera.width / (4 * camera.zoom) : 0;
       const house = iso(farmhouse.x, farmhouse.y);
       camera.centerOn(house.x - pan, house.y + originY - 45);
+      this.paintLight();
       return;
     }
     for (const entrance of SITES) {
@@ -2022,36 +2168,20 @@ export class GameScene extends Phaser.Scene {
         this.effects.fillRect(roof.x - 3, y + 3, 6, 3);
       }
     }
+    for (const event of fieldEvents as FieldEvent[]) {
+      if (s.fieldEvents.includes(event.id)) continue;
+      const point = iso(event.x, event.y);
+      this.art(
+        `find:${event.id}`,
+        "crate:materials:0",
+        point.x,
+        point.y + originY,
+      );
+      this.marker(point.x, point.y + originY + 5, 0x94cad1);
+    }
     const car = iso(s.vehicle.x, s.vehicle.y);
     const angle = s.vehicle.angle;
     const frame = ((Math.round(angle / (Math.PI / 4)) % 8) + 8) % 8;
-    if (s.vehicle.driving) {
-      const beam = (forward: number, side: number) => {
-        const p = iso(
-          forward * Math.cos(angle) - side * Math.sin(angle),
-          forward * Math.sin(angle) + side * Math.cos(angle),
-        );
-        return {
-          x: Math.round(car.x + p.x),
-          y: Math.round(car.y + p.y + originY),
-        };
-      };
-      for (const [reach, spread, alpha] of [
-        [2.2, 0.64, 0.11],
-        [1.4, 0.4, 0.14],
-      ]) {
-        this.gfx.fillStyle(0xe6ba73, alpha);
-        this.gfx.fillPoints(
-          [
-            beam(0.52, -0.24),
-            beam(reach, -spread),
-            beam(reach, spread),
-            beam(0.52, 0.24),
-          ],
-          true,
-        );
-      }
-    }
     this.art("car", `car:${frame}`, car.x, car.y + originY);
     this.drawActors(this.gfx, s.player, s.zombies, originY);
     const p = iso(s.player.x, s.player.y);
@@ -2069,6 +2199,7 @@ export class GameScene extends Phaser.Scene {
     this.weather(p.x, p.y + originY);
     this.combatPixels(p.x, p.y + originY);
     this.drawImpacts(originY);
+    this.paintLight();
   }
 
   private drawInterior(s: State) {
@@ -2099,6 +2230,143 @@ export class GameScene extends Phaser.Scene {
     this.drawImpacts(offset);
     const center = iso(INTERIOR_W / 2, INTERIOR_H / 2);
     this.cameras.main.centerOn(center.x, center.y + offset - 26);
+    this.paintLight();
+  }
+
+  private paintLight() {
+    const s = this.state;
+    const room = s?.inside?.siteId;
+    const offset = room ? roomOriginY : originY;
+    const project = ({ x, y }: Position) => {
+      const at = iso(x, y);
+      return { x: at.x, y: at.y + offset };
+    };
+    const ambient = outdoorLight(s?.time ?? 102);
+    const level = this.registry.get("lighting") ?? "full";
+    if (level === "off") {
+      this.lighting.draw(
+        this.cameras.main,
+        { ...ambient, glows: [] },
+        level,
+        this.visualClock * 1000,
+      );
+      return;
+    }
+    const glows: {
+      x: number;
+      y: number;
+      radius: number;
+      color: string;
+      power: number;
+    }[] = [];
+    const glow = (
+      at: Position,
+      radius: number,
+      color: string,
+      power: number,
+      height = 0,
+    ) => {
+      const p = project(at);
+      glows.push({ ...p, y: p.y - height, radius, color, power });
+    };
+    if (room) {
+      const emergency = ["central", "repetidor", "evacuacion"].includes(room);
+      const color = emergency
+        ? "#ea6044"
+        : room === "laboratorio"
+          ? "#81d8d0"
+          : "#ffd496";
+      glow({ x: 3.7, y: 2.4 }, 122, color, 0.68);
+      glow({ x: 6.6, y: 4.4 }, 76, color, 0.5);
+      glow({ x: 4.5, y: 5.7 }, 68, "#92c7d8", 0.64);
+    } else {
+      for (const landmark of landmarks as (Position & { kind: string })[]) {
+        const color =
+          landmark.kind === "research"
+            ? "#8fdedc"
+            : ["relay", "evacuation"].includes(landmark.kind)
+              ? "#f47c54"
+              : "#ffca81";
+        glow(landmark, landmark.kind === "masia" ? 158 : 94, color, 0.54, 13);
+      }
+      for (const lamp of this.streetLights) {
+        glows.push({
+          x: lamp.x + 7 * lamp.scaleX,
+          y: lamp.y - 22 * lamp.scaleY,
+          radius: 106,
+          color: "#ffd08e",
+          power: 0.62,
+        });
+        glows.push({
+          x: lamp.x + 12,
+          y: lamp.y + 7,
+          radius: 70,
+          color: "#d7aa71",
+          power: 0.4,
+        });
+      }
+      for (const event of fieldEvents as FieldEvent[])
+        if (!s?.fieldEvents.includes(event.id))
+          glow(event, 58, "#8dc0d0", 0.42);
+      if (s?.community.facilities.lookout) glow(BASE, 145, "#f4d192", 0.63);
+    }
+
+    let beam;
+    if (s) {
+      const origin = s.inside ?? s.player;
+      glow(origin, 58, "#b1c5d0", 0.52);
+      const inCar = s.vehicle.driving;
+      if (inCar || this.torch) {
+        const reach = inCar ? 5.8 : 3.7;
+        const angle = inCar ? s.vehicle.angle : this.heading;
+        beam = {
+          ...project(origin),
+          radius: reach * 67,
+          color: inCar ? "#ffcc80" : "#fbdda4",
+          power: room || ambient.shade > 0.3 ? 0.94 : 0.53,
+          edge: beamEdge(
+            origin,
+            angle,
+            reach,
+            inCar ? 0.41 : 0.46,
+            this.obstacles(),
+          ).map(project),
+        };
+      }
+      if (!this.reducedMotion && this.shotDirection && this.attackPulse > 0) {
+        const p = project(origin);
+        glows.push({
+          x: p.x + this.shotDirection * 20,
+          y: p.y - 23,
+          radius: 84,
+          color: "#ffbc78",
+          power: Math.min(1, this.attackPulse * 5),
+        });
+      }
+      for (const effect of this.impacts) {
+        if (
+          effect.kind !== "blast" ||
+          effect.room !== (room ?? "") ||
+          this.reducedMotion
+        )
+          continue;
+        glow(
+          effect.at,
+          150,
+          "#ffa862",
+          Math.max(0, 0.85 - (s.time - effect.time) * 1.45),
+        );
+      }
+    }
+    const frame = room
+      ? { tint: "#111b26", shade: 0.47, haze: 0.045 }
+      : ambient;
+    this.lighting.draw(
+      this.cameras.main,
+      { ...frame, glows, beam },
+      level,
+      this.visualClock * 1000,
+    );
   }
 
   private weather(x: number, y: number) {
@@ -2154,6 +2422,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private combatPixels(x: number, y: number) {
+    if (this.shotTrail && this.attackPulse > 0.1 && !this.reducedMotion) {
+      const from = iso(this.shotTrail.from.x, this.shotTrail.from.y);
+      const to = iso(this.shotTrail.to.x, this.shotTrail.to.y);
+      const offset = this.state.inside ? roomOriginY : originY;
+      this.effects.lineStyle(2, 0xf4ca8d, this.attackPulse * 2.3);
+      this.effects.lineBetween(
+        from.x,
+        from.y + offset - 25,
+        to.x,
+        to.y + offset - 20,
+      );
+    }
     if (this.attackPulse > 0) {
       this.effects.fillStyle(0xf2c787, Math.min(1, this.attackPulse * 2));
       if (this.shotDirection) {
@@ -2225,6 +2505,16 @@ export class GameScene extends Phaser.Scene {
       const at = iso(actor.position.x, actor.position.y);
       const y = at.y + offset;
       const isPlayer = actor.key === "survivor";
+      const charge = isPlayer
+        ? undefined
+        : this.chargeAttack.get(actor.position as Zombie);
+      if (charge && charge.windup > this.state.time) {
+        this.effects.fillStyle(0x58241e);
+        this.effects.fillRect(Math.round(at.x) - 7, Math.round(y) - 66, 14, 9);
+        this.effects.fillStyle(0xffc081);
+        this.effects.fillRect(Math.round(at.x) - 1, Math.round(y) - 65, 3, 4);
+        this.effects.fillRect(Math.round(at.x) - 1, Math.round(y) - 59, 3, 2);
+      }
       const moving = isPlayer
         ? this.moving
         : !!actor.intent && actor.intent.until > this.state.time;

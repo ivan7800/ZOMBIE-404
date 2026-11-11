@@ -27,3 +27,32 @@ export function soundRecipe(name){return Object.hasOwn(SOUND_EVENTS,name)?SOUND_
 export function interiorPalette(id){return PALETTES[id]??PALETTES.taller;}
 export function lightStrength(time){const n=((time%360)+360)%360/360;return Math.max(.16,Math.min(.75,.39+.27*Math.cos(n*Math.PI*2)));}
 export function flicker(time,seed=0){return .7+.3*(.5+.5*Math.sin(time*8.1+seed*19)*Math.sin(time*2.7+seed));}
+
+// Dawn and dusk use the same sun cycle as enemy visibility and audio.
+export function outdoorLight(time) {
+  const phase = ((time % 360) + 360) % 360 / 360;
+  const darkness = Math.max(0, Math.min(1, (0.54 - lightStrength(time)) / 0.4));
+  const horizon = Math.max(0, 1 - Math.min(Math.abs(phase - 0.23), Math.abs(phase - 0.77)) / 0.13);
+  return {
+    tint: `rgb(${Math.round(8 + 49 * horizon)}, ${Math.round(27 + 4 * horizon)}, ${Math.round(49 - 9 * horizon)})`,
+    shade: 0.08 + darkness * 0.52 + horizon * 0.08,
+    haze: darkness * 0.15,
+  };
+}
+
+export function beamEdge(origin, heading, reach, spread, blocked) {
+  const edge = [];
+  for (let ray = 0; ray <= 12; ray++) {
+    const angle = heading + spread * (ray / 6 - 1);
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    let end = origin;
+    for (let radius = 0.24; radius <= reach; radius += 0.24) {
+      const point = { x: origin.x + dx * radius, y: origin.y + dy * radius };
+      if (blocked.has(`${Math.floor(point.x)},${Math.floor(point.y)}`)) break;
+      end = point;
+    }
+    edge.push(end);
+  }
+  return edge;
+}
