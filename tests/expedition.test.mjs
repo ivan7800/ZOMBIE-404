@@ -9,6 +9,7 @@ import {
   newRun,
   prepareRun,
   recruitGuide,
+  recoverTransmitter,
   refuelRadio,
   reload,
   resolveBroadcast,
@@ -66,6 +67,21 @@ test("reload moves rounds to the active survivor’s magazine and respects capac
   assert.equal(run.community.survivors[1].loaded, 4);
   assert.equal(run.player.ammo, 0);
   assert.equal(run.community.survivors[0].loaded, 5);
+});
+
+test("the transmitter reward leaves room for the workshop fuel in every difficulty", () => {
+  for (const difficulty of ["story", "survival", "nightmare"]) {
+    const run = newRun("campaign", difficulty);
+    assert.equal(recoverTransmitter(run), true);
+    assert.equal(recoverTransmitter(run), false);
+    assert.equal(enterInterior(run, "taller"), true);
+    Object.assign(run.inside, { x: 7.5, y: 4.5 });
+    assert.ok(scavengeContainer(run, "bidon", packResource).amount >= 1);
+    Object.assign(run.inside, { x: 4.5, y: 5.5 });
+    assert.equal(exitInterior(run), true);
+    assert.equal(refuelRadio(run), true);
+    assert.equal(run.stage, 2);
+  }
 });
 
 test("expedition records a fuel objective, deposits excess, improves the base and recovers the exact run", () => {

@@ -350,7 +350,10 @@ dialog nav button[aria-pressed="true"] {
   }
   .field-bar {
     bottom: max(11px, env(safe-area-inset-bottom));
-    left: 12px;
+    left: max(12px, env(safe-area-inset-left));
+  }
+  .field-bar button {
+    min-height: 44px;
   }
   #message {
     bottom: calc(255px + env(safe-area-inset-bottom));
@@ -359,7 +362,7 @@ dialog nav button[aria-pressed="true"] {
     display: flex;
     position: absolute;
     inset: auto max(10px, env(safe-area-inset-right))
-      calc(62px + env(safe-area-inset-bottom))
+      calc(64px + env(safe-area-inset-bottom))
       max(10px, env(safe-area-inset-left));
     justify-content: space-between;
     align-items: end;
@@ -634,7 +637,6 @@ dialog {
   #touch {
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
-    bottom: max(8px, env(safe-area-inset-bottom));
     gap: 8px;
   }
   #touch button {
@@ -665,17 +667,16 @@ dialog {
   .vitals { top: max(8px, env(safe-area-inset-top)); padding: 7px 8px; }
   #place { font-size: 17px; }
   #objective { line-height: 1.3; }
-  #message { bottom: calc(132px + env(safe-area-inset-bottom)); max-width: 78vw; }
+  #message { bottom: calc(174px + env(safe-area-inset-bottom)); max-width: 78vw; }
 }
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
-  #touch { bottom: max(6px, env(safe-area-inset-bottom)); }
-  #touch button { min-height: 40px; padding: 3px 7px; }
-  .touchpad { grid-template-columns: repeat(3, 42px); }
+  #touch button { min-height: 44px; padding: 3px 7px; }
+  .touchpad { grid-template-columns: repeat(3, minmax(44px, auto)); }
   .touchactions { grid-template-columns: repeat(4, minmax(48px, 12vw)); }
   .mission, .vitals { top: max(6px, env(safe-area-inset-top)); padding: 5px 8px; }
   #place { font-size: 17px; }
   #objective { font-size: 0.68rem; }
-  #message { bottom: 8px; width: min(36vw, 360px); }
+  #message { bottom: calc(162px + env(safe-area-inset-bottom)); width: min(68vw, 420px); }
 }
 
 #game {

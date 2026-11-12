@@ -8,7 +8,7 @@ import {
   hurtActive,
   nextDay,
 } from "./community.mjs";
-import { bootstrapEquipment, syncEquipment } from "./equipment.mjs";
+import { bootstrapEquipment, pickupEquipment, syncEquipment } from "./equipment.mjs";
 import {
   ensureInteriorState,
   getInterior,
@@ -475,6 +475,17 @@ export function issueSupply(state, resource) {
   c.resources[resource]--;
   s.inventory.items[item] = (s.inventory.items[item] ?? 0) + 1;
   syncEquipment(state);
+  return true;
+}
+
+export function recoverTransmitter(state) {
+  if (state.mode !== "campaign" || state.stage !== 0) return false;
+  const inv = activeSurvivor(state).inventory;
+  // Leave room for the canister needed at the next objective.
+  const reserve = inv.items.fuelcan ? 0 : ITEMS.fuelcan.weight;
+  const spare = inv.capacity - inventoryWeight(inv) - reserve;
+  if (spare > 0) pickupEquipment(state, "ammo", Math.min(4, spare));
+  state.stage = 1;
   return true;
 }
 

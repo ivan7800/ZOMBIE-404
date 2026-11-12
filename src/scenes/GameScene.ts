@@ -73,6 +73,7 @@ import {
   applyInjury,
   advanceCommunity,
   issueSupply,
+  recoverTransmitter,
   refuelRadio,
   recruitGuide,
   resolveBroadcast,
@@ -952,9 +953,7 @@ export class GameScene extends Phaser.Scene {
     if (s.mode === "campaign" && !s.finale) {
       const loc = locations[Math.min(s.stage, 2)];
       if (distance(p, loc) < 2 && hasLineOfSight(p, loc, this.blocked)) {
-        if (s.stage === 0) {
-          s.stage = 1;
-          pickupEquipment(s, "ammo", 4);
+        if (recoverTransmitter(s)) {
           this.flash(
             "«Can Lluc, aquí la Serra. Necesitamos corriente. Busca un bidón en el taller.»",
             5000,

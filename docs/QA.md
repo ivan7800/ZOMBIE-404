@@ -1,4 +1,19 @@
-# Informe de verificación · 0.18.0
+# Informe de verificación
+
+## Revisión de la candidata sobre 0.19.0
+
+La recompensa del transmisor deja espacio para un bidón si el personaje aún no lleva uno. La barra de cuaderno, linterna y pausa tiene una fila propia debajo de los controles táctiles.
+
+| Comprobación | Resultado |
+| --- | --- |
+| Pruebas y compilación | 82/82. Incluye una regresión que comprueba el transmisor y el bidón en los tres niveles de dificultad. |
+| Campaña automatizada | `node scripts/qa-campaign.mjs` recorre los cinco actos por las rutas del mapa. La ruta de rescate ejecuta movimiento, IA y combate de la escena, con 17 bajas. Las otras cuatro rutas verifican interacciones y desenlaces con bajas preparadas donde corresponde. |
+| Guardados | El recorrido anterior guarda y recupera cada decisión pendiente, la posición interior y el resultado de los cinco finales con el formato v2. |
+| Navegador | En Chrome se jugó la versión publicada desde la masía hasta el taller y se recuperó el progreso tras recargar. Chromium local rechazó la creación de sockets y la compilación candidata no se pudo abrir en el navegador remoto. |
+| Móvil | Se revisaron las reglas de ambas orientaciones y se corrigió el solapamiento de las dos barras. DevTools estaba deshabilitado. Falta probar los controles con entrada táctil. |
+| Escritorio | Lanzador Linux probado hasta servir HTML, JS y archivos de la PWA y cerrar el servidor. Electron no abrió por falta de servidor X en el entorno. El lanzador Windows queda pendiente de ejecución. |
+
+Antes de publicar, jugar la candidata en navegador hasta el desenlace para valorar ritmo y legibilidad. Comprobar movimiento, disparo, linterna, cuaderno y pausa en móvil vertical y horizontal. En Windows, ejecutar el lanzador, guardar y volver a abrir para verificar Continuar. Si se distribuye Electron, probar también su ventana gráfica.
 
 ## Revalidación de 0.18.0
 
